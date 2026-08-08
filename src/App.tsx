@@ -11,9 +11,24 @@ import { BillReviewModal } from "./components/BillReviewModal";
 import { ExcelExportModal } from "./components/ExcelExportModal";
 import { GoogleSheetsModal } from "./components/GoogleSheetsModal";
 import { SettingsModal } from "./components/SettingsModal";
-import { BillRecord, DashboardSummary } from "./types";
+import { LoginModal } from "./components/LoginModal";
+import { OutletManagementModal } from "./components/OutletManagementModal";
+import { UserManagementModal } from "./components/UserManagementModal";
+import { BillRecord, DashboardSummary, AuthUser, Outlet } from "./types";
 
 export default function App() {
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(
+    localStorage.getItem("cr_auth_token")
+  );
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Multi-outlet State
+  const [outlets, setOutlets] = useState<Outlet[]>([]);
+  const [selectedOutlet, setSelectedOutlet] = useState<string>("ALL");
+
+  // Dashboard Data State
   const [bills, setBills] = useState<BillRecord[]>([]);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [selectedQuarter, setSelectedQuarter] = useState<string>("ALL");
@@ -28,20 +43,107 @@ export default function App() {
   const [isExportExcelOpen, setIsExportExcelOpen] = useState(false);
   const [isGoogleSheetsOpen, setIsGoogleSheetsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isOutletsModalOpen, setIsOutletsModalOpen] = useState(false);
+  const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
 
-  const handleOpenUpload = (mode: "file" | "camera" | "batch" = "file") => {
-    setUploadInitialTab(mode);
-    setIsUploadOpen(true);
+  // Check initial authentication status
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    setAuthLoading(true);
+    const token = localStorage.getItem("cr_auth_token");
+    if (!token) {
+      setCurrentUser(null);
+      setAuthLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/auth/me", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser(data.user);
+        setAuthToken(token);
+      } else {
+        localStorage.removeItem("cr_auth_token");
+        setCurrentUser(null);
+        setAuthToken(null);
+      }
+    } catch (e) {
+      console.error("Auth verify error", e);
+      setCurrentUser(null);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
+  const handleLoginSuccess = (user: AuthUser, token: string) => {
+    setCurrentUser(user);
+    setAuthToken(token);
+    localStorage.setItem("cr_auth_token", token);
+    if (user.role === "outlet_user" && user.outlet_id) {
+      setSelectedOutlet(user.outlet_id);
+    } else {
+      setSelectedOutlet("ALL");
+    }
+  };
+
+  const handleLogout = async () => {
+    if (authToken) {
+      fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${authToken}` }
+      }).catch(() => {});
+    }
+    localStorage.removeItem("cr_auth_token");
+    setCurrentUser(null);
+    setAuthToken(null);
+  };
+
+  // Fetch Outlets list
   useEffect(() => {
-    fetchBills();
-    fetchSummary();
-  }, [selectedQuarter, searchQuery]);
+    if (currentUser && authToken) {
+      fetchOutlets();
+    }
+  }, [currentUser, authToken]);
+
+  const fetchOutlets = async () => {
+    if (!authToken) return;
+    try {
+      const res = await fetch("/api/outlets", {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOutlets(data);
+      }
+    } catch (e) {
+      console.error("Error fetching outlets", e);
+    }
+  };
+
+  // Fetch Bills and Summary whenever quarter, searchQuery, selectedOutlet, or auth changes
+  useEffect(() => {
+    if (currentUser && authToken) {
+      fetchBills();
+      fetchSummary();
+    }
+  }, [currentUser, authToken, selectedQuarter, searchQuery, selectedOutlet]);
 
   const fetchSummary = async () => {
+    if (!authToken) return;
     try {
-      const res = await fetch("/api/dashboard/summary");
+      const params = new URLSearchParams();
+      if (selectedQuarter !== "ALL") params.append("quarter", selectedQuarter);
+      if (selectedOutlet !== "ALL") params.append("outletId", selectedOutlet);
+
+      const res = await fetch(`/api/dashboard/summary?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setSummary(data);
@@ -52,12 +154,16 @@ export default function App() {
   };
 
   const fetchBills = async () => {
+    if (!authToken) return;
     try {
       const params = new URLSearchParams();
       if (selectedQuarter !== "ALL") params.append("quarter", selectedQuarter);
+      if (selectedOutlet !== "ALL") params.append("outletId", selectedOutlet);
       if (searchQuery.trim()) params.append("search", searchQuery.trim());
 
-      const res = await fetch(`/api/bills?${params.toString()}`);
+      const res = await fetch(`/api/bills?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setBills(data);
@@ -67,10 +173,14 @@ export default function App() {
     }
   };
 
+  const handleOpenUpload = (mode: "file" | "camera" | "batch" = "file") => {
+    setUploadInitialTab(mode);
+    setIsUploadOpen(true);
+  };
+
   const handleUploadSuccess = (newBill: BillRecord) => {
     setBills((prev) => [newBill, ...prev]);
     fetchSummary();
-    // Auto-open review modal if bill needs review
     if (newBill.status === "pending_review") {
       setActiveReviewBill(newBill);
       setIsReviewOpen(true);
@@ -78,10 +188,14 @@ export default function App() {
   };
 
   const handleSaveBill = async (updatedBill: BillRecord, status: "verified" | "pending_review" | "rejected") => {
+    if (!authToken) return;
     try {
       const res = await fetch(`/api/bills/${updatedBill.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`
+        },
         body: JSON.stringify({
           verifiedData: updatedBill.verifiedData,
           status
@@ -99,8 +213,12 @@ export default function App() {
   };
 
   const handleDeleteBill = async (id: string) => {
+    if (!authToken) return;
     try {
-      const res = await fetch(`/api/bills/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/bills/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
       if (res.ok) {
         setBills((prev) => prev.filter((b) => b.id !== id));
         fetchSummary();
@@ -119,12 +237,33 @@ export default function App() {
     setIsReviewOpen(true);
   };
 
+  // If loading auth session
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center font-sans">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-slate-400 font-medium">Loading Multi-Outlet GST System...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If user is not authenticated, show Login Modal
+  if (!currentUser || !authToken) {
+    return <LoginModal onLoginSuccess={handleLoginSuccess} />;
+  }
+
   const pendingBills = bills.filter((b) => b.status === "pending_review");
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
       {/* Top Navbar */}
       <Navbar
+        currentUser={currentUser}
+        outlets={outlets}
+        selectedOutlet={selectedOutlet}
+        onOutletChange={setSelectedOutlet}
         summary={summary}
         selectedQuarter={selectedQuarter}
         onQuarterChange={setSelectedQuarter}
@@ -132,11 +271,18 @@ export default function App() {
         onOpenUpload={(mode) => handleOpenUpload(mode || "file")}
         onOpenExportExcel={() => setIsExportExcelOpen(true)}
         onOpenGoogleSheets={() => setIsGoogleSheetsOpen(true)}
+        onOpenOutletsModal={() => setIsOutletsModalOpen(true)}
+        onOpenUsersModal={() => setIsUsersModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main Dashboard */}
       <main className="flex-1">
         <Dashboard
+          currentUser={currentUser}
+          outlets={outlets}
+          selectedOutlet={selectedOutlet}
+          onSelectOutlet={setSelectedOutlet}
           bills={bills}
           summary={summary}
           selectedQuarter={selectedQuarter}
@@ -155,8 +301,12 @@ export default function App() {
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>Maldivian GST Purchase Bill Entry Assistant &bull; MVR Currency</span>
-          <span className="font-mono text-[11px]">Default Tax Rate: 8% | Business TIN: 1133533GST501</span>
+          <span>Maldivian GST Multi-Outlet Purchase Entry Portal &bull; MVR Currency</span>
+          <span className="font-mono text-[11px]">
+            {currentUser.role === "super_admin"
+              ? "Super Admin Mode (All Outlets)"
+              : `Outlet: ${currentUser.outlet_name || "Assigned Outlet"}`}
+          </span>
         </div>
       </footer>
 
@@ -165,6 +315,7 @@ export default function App() {
         <UploadModal
           isOpen={isUploadOpen}
           initialTab={uploadInitialTab}
+          authToken={authToken}
           onClose={() => setIsUploadOpen(false)}
           onUploadSuccess={handleUploadSuccess}
         />
@@ -186,6 +337,8 @@ export default function App() {
         <ExcelExportModal
           isOpen={isExportExcelOpen}
           selectedQuarter={selectedQuarter}
+          authToken={authToken}
+          selectedOutlet={selectedOutlet}
           onClose={() => setIsExportExcelOpen(false)}
         />
       )}
@@ -205,6 +358,30 @@ export default function App() {
           onSettingsSaved={() => {
             fetchSummary();
             fetchBills();
+          }}
+        />
+      )}
+
+      {isOutletsModalOpen && (
+        <OutletManagementModal
+          isOpen={isOutletsModalOpen}
+          authToken={authToken}
+          onClose={() => setIsOutletsModalOpen(false)}
+          onOutletsUpdated={() => {
+            fetchOutlets();
+            fetchSummary();
+            fetchBills();
+          }}
+        />
+      )}
+
+      {isUsersModalOpen && (
+        <UserManagementModal
+          isOpen={isUsersModalOpen}
+          authToken={authToken}
+          onClose={() => setIsUsersModalOpen(false)}
+          onUsersUpdated={() => {
+            fetchSummary();
           }}
         />
       )}

@@ -23,14 +23,18 @@ import {
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
-  FileCheck2,
+  Store,
+  Users,
   FileImage,
-  FileCode,
   X
 } from "lucide-react";
-import { BillRecord, DashboardSummary } from "../types";
+import { BillRecord, DashboardSummary, AuthUser, Outlet } from "../types";
 
 interface DashboardProps {
+  currentUser: AuthUser | null;
+  outlets: Outlet[];
+  selectedOutlet: string;
+  onSelectOutlet: (outletId: string) => void;
   bills: BillRecord[];
   summary: DashboardSummary | null;
   selectedQuarter: string;
@@ -45,10 +49,14 @@ interface DashboardProps {
   onDeleteBill: (id: string) => void;
 }
 
-type SortField = "supplier" | "date" | "taxable" | "gst" | "total" | "confidence" | "status";
+type SortField = "outlet" | "supplier" | "date" | "taxable" | "gst" | "total" | "confidence" | "status";
 type SortDirection = "asc" | "desc";
 
 export const Dashboard: React.FC<DashboardProps> = ({
+  currentUser,
+  outlets,
+  selectedOutlet,
+  onSelectOutlet,
   bills,
   summary,
   selectedQuarter,
@@ -65,16 +73,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
+  const isSuperAdmin = currentUser?.role === "super_admin";
+
   const pendingCount = bills.filter((b) => b.status === "pending_review").length;
   const verifiedCount = bills.filter((b) => b.status === "verified").length;
   const rejectedCount = bills.filter((b) => b.status === "rejected").length;
 
-  // Calculate Average Extraction Accuracy across bills
-  const avgConfidence = bills.length > 0
-    ? Math.round(bills.reduce((acc, b) => acc + (b.confidence?.overall || 0), 0) / bills.length)
-    : 100;
+  const avgConfidence =
+    bills.length > 0
+      ? Math.round(bills.reduce((acc, b) => acc + (b.confidence?.overall || 0), 0) / bills.length)
+      : 100;
 
-  // Filter bills
+  // Filter bills by tab
   const filteredBills = bills.filter((b) => {
     if (activeTab === "pending_review") return b.status === "pending_review";
     if (activeTab === "verified") return b.status === "verified";
@@ -91,6 +101,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     let valB: any;
 
     switch (sortField) {
+      case "outlet":
+        valA = (a.outlet_name || "").toLowerCase();
+        valB = (b.outlet_name || "").toLowerCase();
+        break;
       case "supplier":
         valA = (dataA.supplier.name || "").toLowerCase();
         valB = (dataB.supplier.name || "").toLowerCase();
@@ -151,9 +165,74 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7 space-y-6">
-      {/* 1. Streamlined 4 Primary Metrics KPI Row */}
+      {/* Role Context Banner */}
+      {!isSuperAdmin && currentUser && (
+        <div className="p-4 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-300 shrink-0">
+              <Store className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-slate-100">{currentUser.outlet_name}</h2>
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full">
+                  Assigned Outlet
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Logged in as <span className="text-slate-200 font-semibold">{currentUser?.name || currentUser?.username || "User"}</span> (@{currentUser?.username || "user"}). All uploaded bills are automatically secured under this outlet.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onOpenUpload("file")}
+            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer shrink-0"
+          >
+            + Upload New Outlet Bill
+          </button>
+        </div>
+      )}
+
+      {/* Super Admin Top Control Bar */}
+      {isSuperAdmin && (
+        <div className="p-4 bg-slate-900 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-400">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <span>Super Admin System Dashboard</span>
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full">
+                  Consolidated Overview
+                </span>
+              </h2>
+              <p className="text-xs text-slate-400">Viewing multi-outlet aggregate data & performance across all shop branches</p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 w-full sm:w-auto">
+            <span className="text-xs text-slate-400 font-semibold hidden md:inline">Filter View:</span>
+            <select
+              value={selectedOutlet}
+              onChange={(e) => onSelectOutlet(e.target.value)}
+              className="bg-slate-950 text-xs font-bold text-amber-300 border border-amber-500/40 rounded-xl px-3 py-2 focus:outline-none cursor-pointer w-full sm:w-auto"
+            >
+              <option value="ALL">All Outlets (Consolidated)</option>
+              {outlets.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name} ({o.code})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* 1. Primary Metrics KPI Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1: Total Taxable Purchases */}
+        {/* Metric 1: Total Purchases */}
         <div className="p-5 bg-slate-900/90 border border-slate-800/90 rounded-2xl flex items-center space-x-4 shadow-md shadow-black/20 relative overflow-hidden">
           <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl shrink-0">
             <DollarSign className="w-6 h-6" />
@@ -212,26 +291,94 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* Metric 4: Extraction Accuracy */}
-        <div className="p-5 bg-slate-900/90 border border-slate-800/90 rounded-2xl flex items-center space-x-4 shadow-md shadow-black/20 relative overflow-hidden">
-          <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl shrink-0">
-            <Sparkles className="w-6 h-6" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-              Extraction Accuracy
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-xl sm:text-2xl font-black text-blue-300 font-mono tracking-tight">
-                {avgConfidence}%
+        {/* Metric 4: Multi-Outlet or Accuracy */}
+        {isSuperAdmin ? (
+          <div className="p-5 bg-slate-900/90 border border-slate-800/90 rounded-2xl flex items-center space-x-4 shadow-md shadow-black/20 relative overflow-hidden">
+            <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl shrink-0">
+              <Store className="w-6 h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+                System Outlets
               </p>
-              <span className="text-[10px] text-slate-400 font-medium">avg confidence</span>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-xl sm:text-2xl font-black text-blue-300 font-mono tracking-tight">
+                  {summary?.totalOutlets || outlets.length}
+                </p>
+                <span className="text-[10px] text-slate-400 font-medium">active locations</span>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-5 bg-slate-900/90 border border-slate-800/90 rounded-2xl flex items-center space-x-4 shadow-md shadow-black/20 relative overflow-hidden">
+            <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl shrink-0">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+                OCR Accuracy
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-xl sm:text-2xl font-black text-blue-300 font-mono tracking-tight">
+                  {avgConfidence}%
+                </p>
+                <span className="text-[10px] text-slate-400 font-medium">avg confidence</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 2. Interactive Status Tab Filters & Table Container */}
+      {/* Super Admin Outlet Breakdown Grid (ONLY for Super Admin when viewing ALL) */}
+      {isSuperAdmin && selectedOutlet === "ALL" && summary?.outletStats && (
+        <div className="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-5 space-y-4 shadow-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Building2 className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+                Outlet-Wise Purchase Summary
+              </h3>
+            </div>
+            <span className="text-[11px] text-slate-400">
+              Click any outlet to filter dashboard bills
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {summary.outletStats.map((stat) => (
+              <div
+                key={stat.outletId}
+                onClick={() => onSelectOutlet(stat.outletId)}
+                className="p-4 bg-slate-950/80 hover:bg-slate-950 border border-slate-800 hover:border-emerald-500/50 rounded-xl transition-all cursor-pointer group space-y-2 shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-100 group-hover:text-emerald-300 transition-colors">
+                    {stat.outletName}
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-transform group-hover:translate-x-0.5" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-800/80">
+                  <div>
+                    <div className="text-[10px] text-slate-400 font-medium">Total Bills</div>
+                    <div className="font-mono font-bold text-slate-200">
+                      {stat.totalBills} ({stat.verifiedCount} verified)
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400 font-medium">Purchases (MVR)</div>
+                    <div className="font-mono font-bold text-emerald-400">
+                      MVR {stat.totalPurchases.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 2. Status Tab Filters & Table Container */}
       <div className="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-5 space-y-5 shadow-xl shadow-black/20">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Status Tab Filters */}
@@ -296,7 +443,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search supplier, TIN, invoice #..."
+              placeholder="Search supplier, TIN, outlet, invoice #..."
               className="w-full bg-slate-950/90 border border-slate-800 rounded-xl pl-10 pr-8 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
             />
             {searchQuery && (
@@ -310,11 +457,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* 3. Streamlined Data Table */}
+        {/* Data Table */}
         <div className="overflow-x-auto rounded-xl border border-slate-800/80 shadow-inner bg-slate-950/40">
           <table className="w-full text-left text-xs text-slate-300 border-collapse">
             <thead className="bg-slate-950/90 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-slate-800/90">
               <tr>
+                {isSuperAdmin && (
+                  <th
+                    onClick={() => handleSort("outlet")}
+                    className="p-3 cursor-pointer select-none hover:text-slate-200 group transition-colors"
+                  >
+                    <span>Outlet</span>
+                    {renderSortIcon("outlet")}
+                  </th>
+                )}
                 <th className="p-3">File / Upload</th>
                 <th
                   onClick={() => handleSort("supplier")}
@@ -371,7 +527,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <tbody className="divide-y divide-slate-800/60 bg-slate-900/40">
               {sortedBills.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="p-12 text-center text-slate-500 text-xs">
+                  <td colSpan={isSuperAdmin ? 10 : 9} className="p-12 text-center text-slate-500 text-xs">
                     <p className="font-semibold text-slate-300">No purchase bills match the selected filter.</p>
                     <p className="text-[11px] mt-1 text-slate-500">
                       Click <button onClick={() => onOpenUpload("file")} className="text-emerald-400 font-bold underline cursor-pointer">Upload Bill</button> to process a new purchase receipt.
@@ -393,6 +549,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         bill.status === "pending_review" ? "bg-amber-500/5" : ""
                       }`}
                     >
+                      {/* Outlet Tag (for Super Admin) */}
+                      {isSuperAdmin && (
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded-md text-[10px] font-bold text-amber-300 truncate inline-block max-w-[130px]">
+                            {bill.outlet_name || "Branch Outlet"}
+                          </span>
+                        </td>
+                      )}
+
                       {/* File Label & Icon */}
                       <td className="p-3">
                         <div className="flex items-center space-x-2">
@@ -410,7 +575,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                       </td>
 
-                      {/* Stacked Supplier Name & TIN */}
+                      {/* Supplier Name & TIN */}
                       <td className="p-3">
                         <div className="font-bold text-slate-100 truncate max-w-[170px]" title={data.supplier.name || ""}>
                           {data.supplier.name || <span className="text-slate-500 italic font-normal">Unknown Supplier</span>}
@@ -434,17 +599,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                       </td>
 
-                      {/* Taxable (Right-Aligned, Monospace) */}
+                      {/* Taxable (Right-Aligned) */}
                       <td className="p-3 text-right font-mono text-slate-200 font-medium">
                         {taxable.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
 
-                      {/* GST (Right-Aligned, Monospace) */}
+                      {/* GST (Right-Aligned) */}
                       <td className="p-3 text-right font-mono text-amber-300 font-bold">
                         {gst.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
 
-                      {/* Total (Right-Aligned, Monospace) */}
+                      {/* Total (Right-Aligned) */}
                       <td className="p-3 text-right font-mono text-emerald-400 font-black text-xs">
                         {total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
@@ -515,5 +680,3 @@ export const Dashboard: React.FC<DashboardProps> = ({
     </div>
   );
 };
-
-

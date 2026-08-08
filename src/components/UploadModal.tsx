@@ -5,6 +5,7 @@ import { BillRecord } from "../types";
 interface UploadModalProps {
   isOpen: boolean;
   initialTab?: "file" | "camera" | "batch";
+  authToken?: string;
   onClose: () => void;
   onUploadSuccess: (bill: BillRecord) => void;
 }
@@ -12,6 +13,7 @@ interface UploadModalProps {
 export const UploadModal: React.FC<UploadModalProps> = ({
   isOpen,
   initialTab = "file",
+  authToken,
   onClose,
   onUploadSuccess
 }) => {
@@ -135,8 +137,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         const formData = new FormData();
         formData.append("billFile", file);
 
+        const headers: Record<string, string> = {};
+        if (authToken) {
+          headers["Authorization"] = `Bearer ${authToken}`;
+        }
+
         const res = await fetch("/api/bills/analyze", {
           method: "POST",
+          headers,
           body: formData
         });
 

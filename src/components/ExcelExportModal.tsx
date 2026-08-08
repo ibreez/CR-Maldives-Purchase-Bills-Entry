@@ -23,6 +23,8 @@ import { ExcelTemplateInfo, TemplateColumnMapping, BillRecord } from "../types";
 interface ExcelExportModalProps {
   isOpen: boolean;
   selectedQuarter: string;
+  authToken?: string;
+  selectedOutlet?: string;
   onClose: () => void;
 }
 
@@ -53,6 +55,8 @@ const DEFAULT_COLUMNS = [
 export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
   isOpen,
   selectedQuarter,
+  authToken,
+  selectedOutlet,
   onClose
 }) => {
   const [templateInfo, setTemplateInfo] = useState<ExcelTemplateInfo | null>(null);
@@ -115,7 +119,13 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
 
   const fetchAllVerifiedBills = async () => {
     try {
-      const res = await fetch("/api/bills?status=verified");
+      const headers: Record<string, string> = {};
+      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
+      const params = new URLSearchParams({ status: "verified" });
+      if (selectedOutlet && selectedOutlet !== "ALL") params.append("outletId", selectedOutlet);
+
+      const res = await fetch(`/api/bills?${params.toString()}`, { headers });
       if (res.ok) {
         const data: BillRecord[] = await res.json();
         setBills(data);
@@ -247,11 +257,15 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
     }
 
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
       const res = await fetch("/api/export/excel", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           quarter: quarterFilter === "ALL" ? undefined : quarterFilter,
+          outletId: selectedOutlet === "ALL" ? undefined : selectedOutlet,
           status: "verified"
         })
       });

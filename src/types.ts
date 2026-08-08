@@ -69,8 +69,17 @@ export interface ValidationResult {
 
 export type BillStatus = 'pending_review' | 'verified' | 'rejected';
 
+export interface UploaderInfo {
+  userId: string;
+  userName: string;
+  userEmail: string;
+}
+
 export interface BillRecord {
   id: string;
+  outlet_id: string;
+  outlet_name?: string;
+  uploaded_by?: UploaderInfo;
   fileName: string;
   fileType: string;
   fileSize: number;
@@ -96,6 +105,7 @@ export interface TemplateColumnMapping {
   invoice_total: string;
   quarter: string;
   notes: string;
+  outlet_name?: string;
 }
 
 export interface ExcelTemplateInfo {
@@ -120,6 +130,16 @@ export interface AppSettings {
   googleSheets: GoogleSheetsConfig;
 }
 
+export interface OutletSummaryStats {
+  outletId: string;
+  outletName: string;
+  totalBills: number;
+  pendingCount: number;
+  verifiedCount: number;
+  totalPurchases: number;
+  totalGst: number;
+}
+
 export interface DashboardSummary {
   totalBills: number;
   pendingReviewCount: number;
@@ -128,4 +148,50 @@ export interface DashboardSummary {
   totalPurchases: number; // Taxable value total
   totalGst: number;       // Total GST paid
   quarterlyStats: Record<string, { count: number; totalPurchases: number; totalGst: number }>;
+  totalOutlets?: number;
+  totalUsers?: number;
+  outletStats?: OutletSummaryStats[];
+}
+
+// Multi-Outlet & Auth Types
+export type UserRole = "super_admin" | "outlet_user";
+
+export interface Outlet {
+  id: string;
+  name: string;
+  code: string;
+  tin?: string;
+  address?: string;
+  phone?: string;
+  status: "active" | "inactive";
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  username: string;
+  role: UserRole;
+  outlet_id: string | null;
+  outlet_name?: string;
+  status: "active" | "inactive";
+  createdAt: string;
+  lastLogin?: string;
+}
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  username: string;
+  role: UserRole;
+  outlet_id: string | null;
+  outlet_name?: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: AuthUser;
 }
