@@ -1,0 +1,6 @@
+{
+  "name": "Maldivian GST Purchase Bill Entry",
+  "description": "AI-powered Maldivian GST purchase bill processing, verification, Excel export, and Google Sheets integration.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
