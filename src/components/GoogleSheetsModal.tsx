@@ -19,6 +19,12 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
   const [syncing, setSyncing] = useState(false);
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  const getAuthHeader = (): Record<string, string> => {
+    const token = localStorage.getItem("cr_auth_token") || localStorage.getItem("crmaldives_token");
+    if (token) return { Authorization: `Bearer ${token}` };
+    return {};
+  };
+
   useEffect(() => {
     if (isOpen) {
       fetchSettings();
@@ -28,7 +34,9 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch("/api/settings");
+      const res = await fetch("/api/settings", {
+        headers: getAuthHeader()
+      });
       if (res.ok) {
         const settings: AppSettings = await res.json();
         setSpreadsheetId(settings.googleSheets.spreadsheetId || "");
@@ -43,7 +51,9 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
     setSaving(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/settings");
+      const res = await fetch("/api/settings", {
+        headers: getAuthHeader()
+      });
       const current: AppSettings = await res.json();
 
       const updated: AppSettings = {
@@ -58,7 +68,10 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
 
       await fetch("/api/settings", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader()
+        },
         body: JSON.stringify(updated)
       });
 
@@ -81,7 +94,10 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
     try {
       const res = await fetch("/api/export/google-sheets", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader()
+        },
         body: JSON.stringify({
           quarter: selectedQuarter === "ALL" ? undefined : selectedQuarter
         })

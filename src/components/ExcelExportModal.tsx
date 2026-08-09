@@ -87,6 +87,14 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
 
   const [bills, setBills] = useState<BillRecord[]>([]);
 
+  const getAuthHeader = (): Record<string, string> => {
+    const token = authToken || localStorage.getItem("cr_auth_token") || localStorage.getItem("crmaldives_token");
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
+    return {};
+  };
+
   useEffect(() => {
     if (isOpen) {
       fetchTemplateInfo();
@@ -102,7 +110,9 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
   const fetchTemplateInfo = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/template/info");
+      const res = await fetch("/api/template/info", {
+        headers: getAuthHeader()
+      });
       if (res.ok) {
         const data: ExcelTemplateInfo = await res.json();
         setTemplateInfo(data);
@@ -119,8 +129,9 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
 
   const fetchAllVerifiedBills = async () => {
     try {
-      const headers: Record<string, string> = {};
-      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+      const headers: Record<string, string> = {
+        ...getAuthHeader()
+      };
 
       const params = new URLSearchParams({ status: "verified" });
       if (selectedOutlet && selectedOutlet !== "ALL") params.append("outletId", selectedOutlet);
@@ -147,14 +158,15 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
     try {
       const res = await fetch("/api/template/upload", {
         method: "POST",
+        headers: getAuthHeader(),
         body: formData
       });
+      const uploadData = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error("Failed to upload custom Excel template.");
+        throw new Error(uploadData.error || "Failed to upload custom Excel template.");
       }
-      const uploadData = await res.json();
       setSuccessMsg(`Uploaded custom template "${file.name}" successfully!`);
-      
+
       await fetchTemplateInfo();
       if (uploadData.columns && uploadData.columns.length > 0) {
         autoMapColumns(uploadData.columns);
@@ -235,10 +247,16 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
     try {
       const res = await fetch("/api/settings", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader()
+        },
         body: JSON.stringify({ templateMapping: mapping })
       });
-      if (!res.ok) throw new Error("Failed to save mapping.");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to save mapping.");
+      }
       setHasUnsavedChanges(false);
       setSuccessMsg("Field mapping saved successfully!");
     } catch (err: any) {
@@ -257,8 +275,10 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
     }
 
     try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...getAuthHeader()
+      };
 
       const res = await fetch("/api/export/excel", {
         method: "POST",
@@ -271,7 +291,8 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
       });
 
       if (!res.ok) {
-        throw new Error("Failed to generate Excel file.");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate Excel file.");
       }
 
       const blob = await res.blob();
@@ -372,18 +393,21 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-3 sm:p-6 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800/90 rounded-2xl shadow-2xl max-w-5xl w-full text-slate-100 my-auto overflow-hidden flex flex-col max-h-[92vh]">
-        
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl max-w-5xl w-full text-slate-100 my-auto overflow-hidden flex flex-col max-h-[92vh]">
+
+        {/* Accent Line */}
+        <div className="h-1 shrink-0 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600" />
+
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-slate-900/90 shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 rounded-xl text-emerald-400">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-slate-900 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-bold text-white tracking-tight">Export GST Purchases to Excel</h2>
-                <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded-full">
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded-full whitespace-nowrap">
                   {filteredBills.length} Bill{filteredBills.length === 1 ? "" : "s"} Ready
                 </span>
               </div>
@@ -392,7 +416,7 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
             title="Close"
           >
             <X className="w-5 h-5" />
@@ -400,34 +424,64 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
         </div>
 
         {/* Body Container */}
-        <div className="p-6 space-y-5 text-xs overflow-y-auto flex-1">
+        <div className="p-5 sm:p-6 space-y-5 text-xs overflow-y-auto flex-1 bg-slate-900">
+
           {error && (
-            <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 flex items-center space-x-3 animate-fadeIn">
+            <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 flex items-center gap-3 animate-fadeIn shadow-sm">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
               <span className="font-medium">{error}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 flex items-center justify-between animate-fadeIn">
-              <div className="flex items-center space-x-2.5">
+            <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 flex items-center justify-between gap-3 animate-fadeIn shadow-sm">
+              <div className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span className="font-medium">{successMsg}</span>
               </div>
               <button
                 onClick={() => setSuccessMsg(null)}
-                className="text-slate-400 hover:text-white text-[11px] font-bold cursor-pointer"
+                className="text-emerald-400/80 hover:text-emerald-200 text-[11px] font-bold cursor-pointer shrink-0"
               >
                 Dismiss
               </button>
             </div>
           )}
 
-          {/* Clean Controls Strip */}
+          {/* Summary KPI Bar */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Verified Bills</p>
+              <p className="text-lg font-black text-white font-mono mt-1 leading-none">{filteredBills.length}</p>
+            </div>
+            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Subtotal (Excl. GST)</p>
+              <p className="text-lg font-black text-white font-mono mt-1 leading-none">
+                {totalTaxable.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <span className="text-[10px] text-slate-400 font-bold ml-1">MVR</span>
+              </p>
+            </div>
+            <div className="bg-slate-950 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400/80">GST Amount (8%)</p>
+              <p className="text-lg font-black text-amber-400 font-mono mt-1 leading-none">
+                {totalGst.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <span className="text-[10px] text-amber-500/70 font-bold ml-1">MVR</span>
+              </p>
+            </div>
+            <div className="bg-slate-950 p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">Invoice Total</p>
+              <p className="text-lg font-black text-emerald-400 font-mono mt-1 leading-none">
+                {totalInvoice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <span className="text-[10px] text-emerald-500/70 font-bold ml-1">MVR</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Controls Bar */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
+
             {/* Export Quarter Filter */}
-            <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800/90 space-y-2 shadow-sm">
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 shadow-sm">
               <div className="flex items-center justify-between">
                 <label className="text-slate-200 font-bold">Export Quarter Filter</label>
                 <span className="text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
@@ -437,7 +491,7 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
               <select
                 value={quarterFilter}
                 onChange={(e) => setQuarterFilter(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/30 transition-all cursor-pointer"
+                className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-100 font-semibold focus:outline-none focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/30 transition-all cursor-pointer"
               >
                 <option value="ALL">All Quarters (All Verified Bills)</option>
                 <option value="2026-Q3">2026-Q3 (Jul - Sep 2026)</option>
@@ -448,9 +502,9 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
             </div>
 
             {/* Layout Template Selector & Options Toggle */}
-            <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800/90 flex flex-col justify-between space-y-2 shadow-sm">
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between gap-2 shadow-sm">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-slate-200 font-bold">
+                <div className="flex items-center gap-2 text-slate-200 font-bold">
                   <Settings2 className="w-4 h-4 text-emerald-400" />
                   <span>Excel Layout Template</span>
                 </div>
@@ -460,14 +514,14 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
                     <span>Custom Layout</span>
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded-full text-[10px] font-medium">
+                  <span className="px-2 py-0.5 bg-slate-800 text-slate-400 border border-slate-700 rounded-full text-[10px] font-semibold">
                     Standard Layout
                   </span>
                 )}
               </div>
 
               <div className="flex items-center justify-between pt-1">
-                <label className="inline-flex items-center space-x-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-100 border border-slate-700/80 hover:border-emerald-500/50 rounded-xl cursor-pointer font-bold text-xs transition-all shadow-sm">
+                <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800 hover:border-emerald-500/50 rounded-lg cursor-pointer font-bold text-xs transition-all shadow-sm">
                   <Upload className="w-3.5 h-3.5 text-emerald-400" />
                   <span>{templateInfo?.hasCustomTemplate ? "Replace .xlsx" : "Upload Custom .xlsx"}</span>
                   <input type="file" accept=".xlsx" className="hidden" onChange={handleTemplateUpload} />
@@ -476,10 +530,10 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowMapping(!showMapping)}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${
                     showMapping
                       ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                      : "bg-slate-800 hover:bg-slate-750 text-slate-300 border-slate-700/80"
+                      : "bg-slate-900 hover:bg-slate-850 text-slate-300 border-slate-800"
                   }`}
                 >
                   <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400" />
@@ -488,28 +542,27 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
                 </button>
               </div>
             </div>
-
           </div>
 
           {/* Collapsible Database Field Mapping Section */}
           {showMapping && (
-            <div className="bg-slate-950/90 p-5 rounded-2xl border border-emerald-500/30 space-y-4 shadow-xl animate-fadeIn">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+            <div className="bg-slate-950 rounded-2xl border border-emerald-500/30 shadow-xl overflow-hidden animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-800 bg-slate-900/60">
                 <div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-amber-400" />
-                    <h3 className="font-bold text-slate-100 text-sm">Configure Field to Column Mapping</h3>
+                    <h3 className="font-bold text-white text-sm">Configure Field to Column Mapping</h3>
                   </div>
                   <p className="text-slate-400 text-[11px] mt-0.5">
                     Match tax fields to your Excel header columns. Drag cards to swap field positions.
                   </p>
                 </div>
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => autoMapColumns()}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-amber-300 border border-slate-700 hover:border-amber-500/40 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-sm"
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-800 hover:border-amber-500/40 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
                     title="Auto-match columns based on header keywords"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
@@ -520,7 +573,7 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
                     type="button"
                     onClick={handleSaveMapping}
                     disabled={savingMapping || !hasUnsavedChanges}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-emerald-300 border border-slate-700 hover:border-emerald-500/40 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-sm"
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-emerald-300 border border-slate-800 hover:border-emerald-500/40 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
                   >
                     <Save className="w-3.5 h-3.5" />
                     <span>{savingMapping ? "Saving..." : hasUnsavedChanges ? "Save Mapping *" : "Saved"}</span>
@@ -529,7 +582,7 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
               </div>
 
               {/* Mapping Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-5">
                 {DB_FIELDS.map((field) => {
                   const currentMappedCol = mapping[field.key] || "";
                   const isOver = dragOverTargetKey === field.key;
@@ -543,18 +596,18 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
                       className={`p-3 rounded-xl border transition-all ${
                         isOver
                           ? "bg-emerald-500/10 border-emerald-400 ring-2 ring-emerald-500/20"
-                          : "bg-slate-900/90 border-slate-800 hover:border-slate-700"
+                          : "bg-slate-900 border-slate-800 hover:border-slate-700"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1.5 gap-2">
                         <div
                           draggable
                           onDragStart={(e) => handleDragStart(e, field.key)}
-                          className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-750 px-2.5 py-1 rounded-lg cursor-grab active:cursor-grabbing border border-slate-700/80 group transition-colors"
+                          className="flex items-center gap-1.5 bg-slate-800 px-2.5 py-1 rounded-lg cursor-grab active:cursor-grabbing border border-slate-700/80 shadow-sm group transition-colors hover:border-emerald-500/50"
                           title="Drag card to swap column mapping"
                         >
                           <GripVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400" />
-                          <span className="font-bold text-slate-200">{field.label}</span>
+                          <span className="font-bold text-slate-200 whitespace-nowrap">{field.label}</span>
                         </div>
 
                         <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -563,7 +616,7 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
                           <select
                             value={currentMappedCol}
                             onChange={(e) => handleMappingChange(field.key, e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/80 rounded-lg px-2.5 py-1 text-slate-200 text-xs font-bold focus:outline-none cursor-pointer"
+                            className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/30 rounded-lg px-2.5 py-1 text-slate-200 text-xs font-semibold focus:outline-none cursor-pointer"
                           >
                             <option value="">-- Unmapped --</option>
                             {availableColumns.map((col) => (
@@ -586,14 +639,14 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
             </div>
           )}
 
-          {/* Export Layout Live Preview Section (Displaying ALL Bill Amounts) */}
-          <div className="bg-slate-950/80 p-4 sm:p-5 rounded-2xl border border-slate-800/90 space-y-3 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center space-x-2 text-slate-200 font-bold">
+          {/* Export Layout Live Preview Section */}
+          <div className="bg-slate-950 rounded-2xl border border-slate-800 shadow-sm overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 sm:px-5 py-3.5 border-b border-slate-800">
+              <div className="flex items-center gap-2 text-slate-200 font-bold">
                 <Table className="w-4 h-4 text-emerald-400" />
                 <span className="text-sm">Export Layout Live Preview</span>
               </div>
-              <div className="flex items-center space-x-3 text-xs font-medium text-slate-400">
+              <div className="flex items-center gap-3 text-xs font-medium text-slate-400">
                 <span className="px-2.5 py-1 bg-slate-900 border border-slate-800 rounded-lg font-mono text-emerald-400 font-bold">
                   {filteredBills.length} Bill{filteredBills.length === 1 ? "" : "s"}
                 </span>
@@ -603,12 +656,12 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
               </div>
             </div>
 
-            {/* Scrollable Data Table displaying all bill amounts */}
-            <div className="overflow-x-auto max-h-[340px] overflow-y-auto border border-slate-800/90 rounded-xl bg-slate-900/60 shadow-inner">
+            {/* Scrollable Data Table */}
+            <div className="overflow-x-auto max-h-[340px] overflow-y-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="sticky top-0 z-10 bg-slate-900 shadow">
+                <thead className="sticky top-0 z-10 bg-slate-900 shadow-sm">
                   <tr className="border-b border-slate-800 text-slate-300 font-bold">
-                    <th className="p-2.5 w-10 text-center font-mono text-[10px] text-slate-500 border-r border-slate-800/80">#</th>
+                    <th className="p-2.5 w-10 text-center font-mono text-[10px] text-slate-500 border-r border-slate-800">#</th>
                     {availableColumns.map((col, idx) => {
                       const mappedEntry = DB_FIELDS.find(f => mapping[f.key] === col);
                       const isNumeric = isNumericField(mappedEntry?.key);
@@ -616,14 +669,14 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
                       return (
                         <th
                           key={idx}
-                          className={`p-2.5 min-w-[130px] font-bold border-r border-slate-800/80 last:border-r-0 ${
+                          className={`p-2.5 min-w-[130px] font-bold border-r border-slate-800 last:border-r-0 ${
                             isNumeric ? "text-right" : "text-left"
                           }`}
                         >
                           <div className="text-emerald-400 font-bold truncate">{col}</div>
                           <div className="text-[10px] text-slate-400 font-normal mt-0.5">
                             {mappedEntry ? (
-                              <span className="px-1.5 py-0.2 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded font-semibold">
+                              <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded font-semibold">
                                 ← {mappedEntry.label}
                               </span>
                             ) : (
@@ -635,7 +688,7 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
                     })}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/50 bg-slate-950/30">
+                <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
                   {filteredBills.length === 0 ? (
                     <tr>
                       <td colSpan={availableColumns.length + 1} className="p-8 text-center text-slate-500">
@@ -673,7 +726,7 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
                 </tbody>
                 {/* Summary Totals Footer Row */}
                 {filteredBills.length > 0 && (
-                  <tfoot className="sticky bottom-0 bg-slate-900 border-t border-slate-800 shadow font-bold">
+                  <tfoot className="sticky bottom-0 bg-slate-900 border-t border-slate-800 shadow-inner font-bold">
                     <tr className="text-slate-200">
                       <td className="p-2.5 text-center font-mono text-[10px] text-slate-500 border-r border-slate-800">
                         ∑
@@ -696,7 +749,7 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
                         return (
                           <td
                             key={idx}
-                            className={`p-2.5 font-mono text-xs border-r border-slate-800/80 last:border-r-0 truncate ${
+                            className={`p-2.5 font-mono text-xs border-r border-slate-800 last:border-r-0 truncate ${
                               isNumeric ? "text-right font-black" : "font-bold text-slate-400"
                             } ${mappedEntry?.key === "gst_amount" ? "text-amber-300" : ""} ${
                               mappedEntry?.key === "invoice_total" ? "text-emerald-400" : ""
@@ -712,19 +765,18 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
               </table>
             </div>
           </div>
-
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-800/80 bg-slate-900/90 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-800/80 bg-slate-900 shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white text-xs font-bold rounded-xl border border-slate-700/80 transition-colors cursor-pointer"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white text-xs font-bold rounded-lg border border-slate-700/80 transition-colors cursor-pointer shadow-sm"
           >
             Cancel
           </button>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-3">
             {hasUnsavedChanges && (
               <span className="text-xs text-amber-400 font-bold hidden sm:inline">
                 Unsaved changes will save automatically on export
@@ -734,7 +786,7 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
             <button
               onClick={handleDownloadExcel}
               disabled={exporting}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-950/50 flex items-center space-x-2 transition-all disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-lg shadow-emerald-950/50 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
             >
               {exporting ? (
                 <>

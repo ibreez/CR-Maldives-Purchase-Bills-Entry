@@ -46,6 +46,10 @@ export const BillReviewModal: React.FC<BillReviewModalProps> = ({
     bill ? JSON.parse(JSON.stringify(bill.verifiedData || bill.extractedData)) : null
   );
 
+  // Re-extract state
+  const [reExtracting, setReExtracting] = useState(false);
+  const [reExtractError, setReExtractError] = useState<string | null>(null);
+
   // Document preview transform states
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -55,12 +59,42 @@ export const BillReviewModal: React.FC<BillReviewModalProps> = ({
       setFormData(JSON.parse(JSON.stringify(bill.verifiedData || bill.extractedData)));
       setZoom(1);
       setRotation(0);
+      setReExtractError(null);
     } else {
       setFormData(null);
     }
   }, [bill]);
 
   if (!isOpen || !bill || !formData) return null;
+
+  const handleReExtract = async () => {
+    setReExtracting(true);
+    setReExtractError(null);
+    try {
+      const token = localStorage.getItem("cr_auth_token") || localStorage.getItem("crmaldives_token");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/bills/${bill.id}/re-extract`, {
+        method: "POST",
+        headers
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Re-extraction failed.");
+      }
+
+      const updatedBill: BillRecord = data;
+      setFormData(JSON.parse(JSON.stringify(updatedBill.verifiedData || updatedBill.extractedData)));
+      onSave(updatedBill, updatedBill.status);
+    } catch (err: any) {
+      console.error("Re-extract error:", err);
+      setReExtractError(err.message || "Failed to re-extract bill.");
+    } finally {
+      setReExtracting(false);
+    }
+  };
 
   // Recalculate Totals Helper
   const handleRecalculateTotals = () => {
@@ -194,6 +228,18 @@ export const BillReviewModal: React.FC<BillReviewModalProps> = ({
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* Re-extract Button */}
+            <button
+              type="button"
+              onClick={handleReExtract}
+              disabled={reExtracting}
+              className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+              title="Re-run Gemini AI extraction on this bill"
+            >
+              <RotateCw className={`w-3.5 h-3.5 ${reExtracting ? "animate-spin" : ""}`} />
+              <span>{reExtracting ? "Extracting..." : "Retry AI Extraction"}</span>
+            </button>
+
             {/* Confidence Badge */}
             <div className="flex items-center space-x-2 text-xs bg-slate-950/80 px-3.5 py-1.5 rounded-xl border border-slate-800">
               <span className="text-slate-400 font-medium">Confidence:</span>
@@ -218,6 +264,13 @@ export const BillReviewModal: React.FC<BillReviewModalProps> = ({
             </button>
           </div>
         </div>
+
+            {reExtractError && (
+              <div className="bg-rose-950/60 border-b border-rose-800/80 px-6 py-2.5 text-xs text-rose-200 flex items-center justify-between">
+                <span>{reExtractError}</span>
+                <button onClick={() => setReExtractError(null)} className="text-rose-400 hover:text-rose-100 text-xs font-bold">Dismiss</button>
+              </div>
+            )}
 
             {/* Validation Banners / Review Reason */}
             {(bill.needs_review || bill.validation.issues.length > 0 || bill.review_reason) && (

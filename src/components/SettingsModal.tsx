@@ -24,9 +24,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [isOpen]);
 
+  const getAuthHeader = (): Record<string, string> => {
+    const token = localStorage.getItem("cr_auth_token") || localStorage.getItem("crmaldives_token");
+    if (token) return { Authorization: `Bearer ${token}` };
+    return {};
+  };
+
   const fetchSettings = async () => {
     try {
-      const res = await fetch("/api/settings");
+      const res = await fetch("/api/settings", {
+        headers: getAuthHeader()
+      });
       if (res.ok) {
         const data = await res.json();
         setSettings(data);
@@ -43,7 +51,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const res = await fetch("/api/settings", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader()
+        },
         body: JSON.stringify(settings)
       });
       if (res.ok) {

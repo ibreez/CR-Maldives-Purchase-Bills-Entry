@@ -832,6 +832,54 @@ function getGeminiClient() {
   });
 }
 
+// Wrapper with exponential backoff and fallback model for transient Gemini 503 / 429 / UNAVAILABLE errors
+async function generateContentWithRetry(ai: GoogleGenAI, params: any, maxRetries = 3) {
+  let delay = 1000;
+  let lastError: any = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (err: any) {
+      lastError = err;
+      const errStr = String(err?.message || err?.status || err?.code || err);
+      const isTransient =
+        err?.status === 503 ||
+        err?.code === 503 ||
+        err?.status === 429 ||
+        err?.code === 429 ||
+        errStr.includes("503") ||
+        errStr.includes("high demand") ||
+        errStr.includes("UNAVAILABLE") ||
+        errStr.includes("RESOURCE_EXHAUSTED") ||
+        errStr.includes("overloaded") ||
+        errStr.includes("temporarily unavailable") ||
+        errStr.includes("ETIMEDOUT") ||
+        errStr.includes("ECONNRESET");
+
+      if (isTransient) {
+        if (attempt < maxRetries) {
+          console.warn(`[Gemini API Transient Error] Attempt ${attempt}/${maxRetries} failed with 503/transient error: ${errStr}. Retrying in ${delay}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          delay *= 2; // exponential backoff (1s -> 2s -> 4s)
+          continue;
+        } else if (params.model === "gemini-3.6-flash") {
+          console.warn(`[Gemini API Fallback] Primary model 'gemini-3.6-flash' experiencing high demand (503). Retrying with fallback model 'gemini-flash-latest'...`);
+          try {
+            const fallbackParams = { ...params, model: "gemini-flash-latest" };
+            return await ai.models.generateContent(fallbackParams);
+          } catch (fallbackErr: any) {
+            console.error("[Gemini API Fallback Failed] Fallback model also failed:", fallbackErr);
+            throw err;
+          }
+        }
+      }
+      throw err;
+    }
+  }
+  throw lastError || new Error("Gemini API request failed after retries.");
+}
+
 // Validation logic for bills (smart validation based on document_type and tax_status)
 function validateBill(data: ExtractedBillData, existingBills: BillRecord[], currentId?: string, outletId?: string): ValidationResult {
   const issues: { type: 'error' | 'warning'; field?: string; message: string }[] = [];
@@ -1555,7 +1603,7 @@ ${retryNote ? `\nRETRY FEEDBACK FROM PREVIOUS ATTEMPT: ${retryNote}\nRe-examine 
           }
         };
 
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry(ai, {
           model: "gemini-3.6-flash",
           contents: [imagePart, promptText],
           config: {
@@ -1909,6 +1957,270 @@ app.put("/api/bills/:id", requireAuth, (req, res) => {
   saveBills(bills);
 
   res.json(current);
+});
+
+// Re-extract AI OCR data for an existing bill
+app.post("/api/bills/:id/re-extract", requireAuth, async (req, res) => {
+  const user = (req as any).user as AuthUser;
+  const { id } = req.params;
+  const bills = getBills();
+  const index = bills.findIndex((b) => b.id === id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: "Bill not found" });
+  }
+
+  const current = bills[index];
+
+  if (user.role === "outlet_user" && current.outlet_id !== user.outlet_id) {
+    return res.status(403).json({ error: "Access Denied: Cannot modify bill from another outlet." });
+  }
+
+  const ai = getGeminiClient();
+  if (!ai) {
+    return res.status(400).json({ error: "Gemini AI client is not configured or missing API key." });
+  }
+
+  // Find file on disk
+  const relativePath = current.fileUrl.startsWith("/") ? current.fileUrl.slice(1) : current.fileUrl;
+  const fullPath = path.join(process.cwd(), relativePath);
+
+  if (!fs.existsSync(fullPath)) {
+    return res.status(404).json({ error: "Original bill file was not found on server disk." });
+  }
+
+  try {
+    const fileBuffer = fs.readFileSync(fullPath);
+    const mimeType = current.fileType || (current.fileName.endsWith(".pdf") ? "application/pdf" : "image/jpeg");
+    const settings = getAppSettings();
+
+    let extractedData: ExtractedBillData | null = null;
+    let confidence: FieldConfidence | null = null;
+    let ocrAttempts = current.ocr_attempts || 1;
+    let ocrErrorMsg: string | null = null;
+
+    ocrAttempts++;
+    const promptText = `
+You are an expert financial document extraction system specifically tuned for Maldivian purchase bills, receipts, invoices, and handwritten market purchase slips under MIRA (Maldives Inland Revenue Authority) Income Tax & GST Tax Rules.
+
+Extract information from this image into the required JSON schema.
+
+CRITICAL INSTRUCTIONS & RULES:
+1. DOCUMENT TYPE CLASSIFICATION: "TAX_INVOICE" | "INVOICE" | "RECEIPT" | "HANDWRITTEN_PURCHASE" | "CASH_PURCHASE" | "CAPITAL_EXPENDITURE" | "OTHER".
+2. TAX STATUS CLASSIFICATION: "TAX_CHARGED" | "TAX_INCLUDED" | "NO_TAX" | "UNKNOWN".
+3. MIRA SCHEDULE 1 CATEGORY CLASSIFICATION: Exact Schedule 1 category ("Cost of Sales", "Insurance Premium", "Professional & Consulting Fees", "Rental, Lease & License", "Repairs & Maintenance", "Related Party Expenses", "Salaries & Wages", "Sales & Marketing", "Other Expenses", "Capital Asset (Schedule 2)").
+4. EVIDENCE RULES: ONLY extract values supported by text in document.
+`;
+
+    const imagePart = {
+      inlineData: {
+        mimeType,
+        data: fileBuffer.toString("base64")
+      }
+    };
+
+    try {
+      const response = await generateContentWithRetry(ai, {
+        model: "gemini-3.6-flash",
+        contents: [imagePart, promptText],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              document_type: { type: Type.STRING },
+              tax_status: { type: Type.STRING },
+              expense_category: { type: Type.STRING },
+              mira_schedule1_category: { type: Type.STRING, nullable: true },
+              accounting_treatment: { type: Type.STRING, nullable: true },
+              income_tax_treatment: { type: Type.STRING, nullable: true },
+              deductible_percentage: { type: Type.NUMBER, nullable: true },
+              is_capital_asset: { type: Type.BOOLEAN, nullable: true },
+              supplier: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING, nullable: true },
+                  gstin: { type: Type.STRING, nullable: true },
+                  address: { type: Type.STRING, nullable: true },
+                  phone: { type: Type.STRING, nullable: true }
+                }
+              },
+              invoice: {
+                type: Type.OBJECT,
+                properties: {
+                  number: { type: Type.STRING, nullable: true },
+                  date: { type: Type.STRING, nullable: true },
+                  po_number: { type: Type.STRING, nullable: true },
+                  currency: { type: Type.STRING, nullable: true },
+                  gst_type: { type: Type.STRING, nullable: true }
+                }
+              },
+              items: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    description: { type: Type.STRING },
+                    quantity: { type: Type.NUMBER, nullable: true },
+                    unit: { type: Type.STRING, nullable: true },
+                    rate: { type: Type.NUMBER, nullable: true },
+                    discount: { type: Type.NUMBER, nullable: true },
+                    taxable_value: { type: Type.NUMBER, nullable: true },
+                    gst_rate: { type: Type.NUMBER, nullable: true },
+                    gst_amount: { type: Type.NUMBER, nullable: true },
+                    total: { type: Type.NUMBER, nullable: true }
+                  }
+                }
+              },
+              totals: {
+                type: Type.OBJECT,
+                properties: {
+                  taxable_value: { type: Type.NUMBER, nullable: true },
+                  gst_amount: { type: Type.NUMBER, nullable: true },
+                  round_off: { type: Type.NUMBER, nullable: true },
+                  invoice_total: { type: Type.NUMBER, nullable: true }
+                }
+              },
+              confidence: {
+                type: Type.OBJECT,
+                properties: {
+                  supplier_name: { type: Type.NUMBER },
+                  supplier_tin: { type: Type.NUMBER },
+                  invoice_number: { type: Type.NUMBER },
+                  invoice_date: { type: Type.NUMBER },
+                  taxable_value: { type: Type.NUMBER },
+                  gst_amount: { type: Type.NUMBER },
+                  invoice_total: { type: Type.NUMBER },
+                  line_items: { type: Type.NUMBER },
+                  overall: { type: Type.NUMBER }
+                }
+              },
+              notes: { type: Type.STRING, nullable: true }
+            }
+          }
+        }
+      });
+
+      const rawJson = response.text ? response.text.trim() : "{}";
+      const parsed = JSON.parse(rawJson);
+
+      const docType = (parsed.document_type || "TAX_INVOICE").toUpperCase() as any;
+      const taxStat = (parsed.tax_status || "TAX_CHARGED").toUpperCase() as any;
+      const expCat = (parsed.expense_category || "Other") as any;
+
+      const formattedDate = formatToMaldivianDate(parsed.invoice?.date || null);
+      const taxDerived = deriveTaxTreatment(expCat, docType, parsed.notes);
+
+      let miraCat = parsed.mira_schedule1_category || taxDerived.mira_schedule1_category;
+      let acctTreat = parsed.accounting_treatment || taxDerived.accounting_treatment;
+      let taxTreat = parsed.income_tax_treatment || taxDerived.income_tax_treatment;
+      let dedPct = parsed.deductible_percentage ?? taxDerived.deductible_percentage;
+
+      if (parsed.is_capital_asset || docType === 'CAPITAL_EXPENDITURE' || expCat === 'Equipment') {
+        miraCat = 'Capital Asset (Schedule 2)';
+        acctTreat = 'CAPITAL_EXPENDITURE';
+        taxTreat = 'CAPITAL_ALLOWANCE';
+        dedPct = 100;
+      }
+
+      extractedData = {
+        document_type: docType,
+        tax_status: taxStat,
+        expense_category: expCat,
+        mira_schedule1_category: miraCat,
+        accounting_treatment: acctTreat,
+        income_tax_treatment: taxTreat,
+        deductible_percentage: dedPct,
+        supplier: {
+          name: parsed.supplier?.name || null,
+          gstin: parsed.supplier?.gstin || null,
+          address: parsed.supplier?.address || null,
+          phone: parsed.supplier?.phone || null
+        },
+        invoice: {
+          number: parsed.invoice?.number || null,
+          date: formattedDate || null,
+          po_number: parsed.invoice?.po_number || null,
+          currency: parsed.invoice?.currency || "MVR",
+          gst_type: parsed.invoice?.gst_type || (taxStat === "NO_TAX" ? "Exempt / No Tax" : "GST 8%")
+        },
+        items: (parsed.items || []).map((item: any, idx: number) => ({
+          id: `item-${idx + 1}`,
+          description: item.description || "",
+          quantity: item.quantity ?? null,
+          unit: item.unit ?? null,
+          rate: item.rate ?? null,
+          discount: item.discount ?? null,
+          taxable_value: item.taxable_value ?? null,
+          gst_rate: item.gst_rate ?? (taxStat === "NO_TAX" ? 0 : settings.defaultGstRate),
+          gst_amount: item.gst_amount ?? (taxStat === "NO_TAX" ? 0 : null),
+          total: item.total ?? null
+        })),
+        totals: {
+          taxable_value: parsed.totals?.taxable_value ?? null,
+          gst_amount: taxStat === "NO_TAX" ? 0 : (parsed.totals?.gst_amount ?? null),
+          round_off: parsed.totals?.round_off ?? 0,
+          invoice_total: parsed.totals?.invoice_total ?? null
+        },
+        notes: parsed.notes || null
+      };
+
+      confidence = {
+        supplier_name: parsed.confidence?.supplier_name ?? 85,
+        supplier_tin: parsed.confidence?.supplier_tin ?? 85,
+        invoice_number: parsed.confidence?.invoice_number ?? 85,
+        invoice_date: parsed.confidence?.invoice_date ?? 85,
+        taxable_value: parsed.confidence?.taxable_value ?? 85,
+        gst_amount: parsed.confidence?.gst_amount ?? 85,
+        invoice_total: parsed.confidence?.invoice_total ?? 85,
+        line_items: parsed.confidence?.line_items ?? 80,
+        overall: parsed.confidence?.overall ?? 85
+      };
+    } catch (err: any) {
+      console.warn("Re-extraction Gemini AI error:", err);
+      ocrErrorMsg = err.message || "Re-extraction failed.";
+    }
+
+    if (extractedData) {
+      const validation = validateBill(extractedData, bills, current.id, current.outlet_id);
+      const ocrStatus = validation.is_valid ? "VALIDATED" : "NEEDS_REVIEW";
+      const needsReview = !validation.is_valid || confidence!.overall < 80;
+
+      let reviewReason: string | null = null;
+      if (validation.issues.length > 0) {
+        reviewReason = validation.issues.map((i) => i.message).join(" ");
+      } else if (confidence!.overall < 80) {
+        reviewReason = `Low OCR confidence (${confidence!.overall}%). Please verify extracted numbers.`;
+      }
+
+      current.extractedData = extractedData;
+      current.verifiedData = JSON.parse(JSON.stringify(extractedData));
+      current.confidence = confidence!;
+      current.validation = validation;
+      current.ocr_attempts = ocrAttempts;
+      current.ocr_status = ocrStatus;
+      current.needs_review = needsReview;
+      current.review_reason = reviewReason;
+      current.updatedAt = new Date().toISOString();
+
+      if (!current.audit_trail) current.audit_trail = [];
+      current.audit_trail.push({
+        date: new Date().toISOString(),
+        action: "Re-extracted with Gemini AI",
+        performedBy: user.name,
+        details: `Re-run attempt #${ocrAttempts}. Status: ${ocrStatus}, Confidence: ${confidence!.overall}%`
+      });
+
+      bills[index] = current;
+      saveBills(bills);
+      return res.json(current);
+    } else {
+      return res.status(500).json({ error: ocrErrorMsg || "Failed to re-extract bill details." });
+    }
+  } catch (err: any) {
+    console.error("Re-extraction server error:", err);
+    return res.status(500).json({ error: err.message || "Failed to re-extract bill." });
+  }
 });
 
 // Delete bill with backend isolation check
