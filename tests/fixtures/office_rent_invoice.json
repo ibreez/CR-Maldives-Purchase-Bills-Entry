@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FIX-010-RENT",
+  "description": "Monthly Commercial Real Estate Lease Invoice for outlet premises",
+  "sourceDocument": {
+    "fileName": "male_properties_rent_june_2026.pdf",
+    "supplierName": "Malé Commercial Properties Pvt Ltd",
+    "supplierTin": "1000331GST001",
+    "invoiceNumber": "MCP-RENT-2026-06",
+    "issueDate": "2026-06-01",
+    "currency": "MVR"
+  },
+  "expectedExtraction": {
+    "subtotal": 45000.00,
+    "gstAmount": 0.00,
+    "totalAmount": 45000.00,
+    "gstRate": 0
+  },
+  "expectedAssertions": {
+    "documentType": "RENT_INVOICE",
+    "accountingCategory": "occupancy.rent",
+    "subcategory": "office_lease",
+    "gstTreatment": "EXEMPT",
+    "miraCategory": "rental_repairs",
+    "incomeTaxTreatment": "DEDUCTIBLE",
+    "reviewRequired": false,
+    "adjustmentCode": "NONE"
+  }
+}

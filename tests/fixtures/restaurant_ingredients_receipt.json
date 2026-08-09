@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FIX-004-INGREDIENTS",
+  "description": "Bulk food ingredient supplies tax invoice from registered wholesaler",
+  "sourceDocument": {
+    "fileName": "lily_enterprises_ingredients_inv.pdf",
+    "supplierName": "Lily Enterprises Pvt Ltd",
+    "supplierTin": "1000201GST001",
+    "invoiceNumber": "LE-INV-88203",
+    "issueDate": "2026-07-02",
+    "currency": "MVR"
+  },
+  "expectedExtraction": {
+    "subtotal": 18500.00,
+    "gstAmount": 1480.00,
+    "totalAmount": 19980.00,
+    "gstRate": 8
+  },
+  "expectedAssertions": {
+    "documentType": "SUPPLIER_INVOICE",
+    "accountingCategory": "cost_of_sales.ingredients",
+    "subcategory": "food_beverage_ingredients",
+    "gstTreatment": "STANDARD_RATED_8",
+    "miraCategory": "cost_of_sales",
+    "incomeTaxTreatment": "DEDUCTIBLE",
+    "reviewRequired": false,
+    "adjustmentCode": "NONE"
+  }
+}

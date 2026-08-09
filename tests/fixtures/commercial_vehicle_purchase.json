@@ -1,0 +1,29 @@
+{
+  "fixtureId": "FIX-007-VEHICLE",
+  "description": "Tax invoice for commercial delivery pickup truck purchase",
+  "sourceDocument": {
+    "fileName": "solarex_delivery_pickup_van.pdf",
+    "supplierName": "MHI Motors Maldives Pvt Ltd",
+    "supplierTin": "1000998GST001",
+    "invoiceNumber": "MHI-INV-2026-0042",
+    "issueDate": "2026-05-18",
+    "currency": "MVR"
+  },
+  "expectedExtraction": {
+    "subtotal": 450000.00,
+    "gstAmount": 36000.00,
+    "totalAmount": 486000.00,
+    "gstRate": 8
+  },
+  "expectedAssertions": {
+    "documentType": "ASSET_PURCHASE",
+    "accountingCategory": "capital_assets.motor_vehicles",
+    "subcategory": "commercial_delivery_van",
+    "gstTreatment": "STANDARD_RATED_8",
+    "miraCategory": "capital_asset_schedule2",
+    "incomeTaxTreatment": "CAPITAL_ALLOWANCE",
+    "reviewRequired": false,
+    "adjustmentCode": "ADJ-CAPITAL",
+    "miraAssetClass": "Motor vehicles"
+  }
+}

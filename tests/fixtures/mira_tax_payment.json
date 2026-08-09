@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FIX-008-MIRA-TAX",
+  "description": "MIRA Official Payment Voucher & Receipt for Corporate Income Tax Settlement",
+  "sourceDocument": {
+    "fileName": "mira_income_tax_payment_voucher.pdf",
+    "supplierName": "Maldives Inland Revenue Authority (MIRA)",
+    "supplierTin": "1000000GST001",
+    "invoiceNumber": "MIRA-PAY-2026-90112",
+    "issueDate": "2026-06-30",
+    "currency": "MVR"
+  },
+  "expectedExtraction": {
+    "subtotal": 85000.00,
+    "gstAmount": 0.00,
+    "totalAmount": 85000.00,
+    "gstRate": 0
+  },
+  "expectedAssertions": {
+    "documentType": "TAX_PAYMENT",
+    "accountingCategory": "statutory_payments.mira_tax",
+    "subcategory": "income_tax_settlement",
+    "gstTreatment": "OUT_OF_SCOPE",
+    "miraCategory": "non_deductible_tax_payment",
+    "incomeTaxTreatment": "NON_DEDUCTIBLE",
+    "reviewRequired": false,
+    "adjustmentCode": "ADJ-OTHER"
+  }
+}

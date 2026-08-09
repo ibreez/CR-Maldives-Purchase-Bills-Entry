@@ -1,0 +1,13 @@
+[
+  "stelco_electricity_bill.json",
+  "mwsc_water_bill.json",
+  "dhiraagu_internet_invoice.json",
+  "restaurant_ingredients_receipt.json",
+  "local_market_handwritten_receipt.json",
+  "laptop_asset_purchase.json",
+  "commercial_vehicle_purchase.json",
+  "mira_tax_payment.json",
+  "kitchen_equipment_purchase.json",
+  "office_rent_invoice.json",
+  "mira_regulatory_fine.json"
+]

@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DocumentTestFixture",
+  "description": "JSON Schema for Maldivian Tax & Accounting Engine Document Test Fixtures (Phase 0)",
+  "type": "object",
+  "required": [
+    "fixtureId",
+    "description",
+    "sourceDocument",
+    "expectedExtraction",
+    "expectedAssertions"
+  ],
+  "properties": {
+    "fixtureId": {
+      "type": "string",
+      "description": "Unique identifier for the test fixture"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable scenario explanation"
+    },
+    "sourceDocument": {
+      "type": "object",
+      "required": ["fileName", "supplierName", "issueDate"],
+      "properties": {
+        "fileName": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "supplierTin": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "issueDate": { "type": "string" },
+        "currency": { "type": "string", "default": "MVR" }
+      }
+    },
+    "expectedExtraction": {
+      "type": "object",
+      "required": ["subtotal", "gstAmount", "totalAmount"],
+      "properties": {
+        "subtotal": { "type": "number" },
+        "gstAmount": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "gstRate": { "type": "number" }
+      }
+    },
+    "expectedAssertions": {
+      "type": "object",
+      "required": [
+        "documentType",
+        "accountingCategory",
+        "subcategory",
+        "gstTreatment",
+        "miraCategory",
+        "incomeTaxTreatment",
+        "reviewRequired"
+      ],
+      "properties": {
+        "documentType": {
+          "type": "string",
+          "enum": [
+            "UTILITY_BILL",
+            "TELECOM_INVOICE",
+            "SUPPLIER_INVOICE",
+            "HANDWRITTEN_RECEIPT",
+            "ASSET_PURCHASE",
+            "RENT_INVOICE",
+            "FINE_PENALTY",
+            "TAX_PAYMENT"
+          ]
+        },
+        "accountingCategory": { "type": "string" },
+        "subcategory": { "type": "string" },
+        "gstTreatment": {
+          "type": "string",
+          "enum": [
+            "STANDARD_RATED_8",
+            "STANDARD_RATED_16",
+            "ZERO_RATED",
+            "EXEMPT",
+            "OUT_OF_SCOPE",
+            "NO_INPUT_TAX"
+          ]
+        },
+        "miraCategory": {
+          "type": "string",
+          "enum": [
+            "other_expenses",
+            "cost_of_sales",
+            "professional_fees",
+            "rental_repairs",
+            "salaries_wages",
+            "capital_asset_schedule2",
+            "non_deductible_tax_payment",
+            "non_deductible_fine"
+          ]
+        },
+        "incomeTaxTreatment": {
+          "type": "string",
+          "enum": [
+            "DEDUCTIBLE",
+            "NON_DEDUCTIBLE",
+            "CAPITAL_ALLOWANCE",
+            "EXEMPT"
+          ]
+        },
+        "reviewRequired": { "type": "boolean" },
+        "adjustmentCode": {
+          "type": "string",
+          "enum": [
+            "ADJ-DEPR",
+            "ADJ-FINES",
+            "ADJ-DONATION",
+            "ADJ-PRIVATE",
+            "ADJ-CAPITAL",
+            "ADJ-OWNER",
+            "ADJ-RELATED",
+            "ADJ-OTHER",
+            "NONE"
+          ]
+        },
+        "miraAssetClass": { "type": "string" }
+      }
+    }
+  }
+}

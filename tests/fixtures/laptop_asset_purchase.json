@@ -1,0 +1,29 @@
+{
+  "fixtureId": "FIX-006-LAPTOP",
+  "description": "Tax invoice for commercial MacBook Pro purchase for administration",
+  "sourceDocument": {
+    "fileName": "personal_computers_macbook_inv.pdf",
+    "supplierName": "Personal Computers Pvt Ltd",
+    "supplierTin": "1000512GST001",
+    "invoiceNumber": "PC-2026-3391",
+    "issueDate": "2026-06-12",
+    "currency": "MVR"
+  },
+  "expectedExtraction": {
+    "subtotal": 35000.00,
+    "gstAmount": 2800.00,
+    "totalAmount": 37800.00,
+    "gstRate": 8
+  },
+  "expectedAssertions": {
+    "documentType": "ASSET_PURCHASE",
+    "accountingCategory": "capital_assets.computer_equipment",
+    "subcategory": "laptops",
+    "gstTreatment": "STANDARD_RATED_8",
+    "miraCategory": "capital_asset_schedule2",
+    "incomeTaxTreatment": "CAPITAL_ALLOWANCE",
+    "reviewRequired": false,
+    "adjustmentCode": "ADJ-CAPITAL",
+    "miraAssetClass": "Computer software & equipment"
+  }
+}

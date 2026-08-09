@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   FileSpreadsheet,
   Settings,
@@ -11,11 +11,12 @@ import {
   Store,
   Users,
   LogOut,
-  Shield,
-  User as UserIcon,
   Building2,
   TrendingUp,
-  Calculator
+  Calculator,
+  Menu,
+  X,
+  Calendar
 } from "lucide-react";
 import { DashboardSummary, AuthUser, Outlet } from "../types";
 
@@ -44,13 +45,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   outlets,
   selectedOutlet,
   onOutletChange,
-  summary,
   selectedQuarter,
   onQuarterChange,
   onOpenSettings,
   onOpenUpload,
   onOpenExportExcel,
-  onOpenGoogleSheets,
   onOpenOutletsModal,
   onOpenUsersModal,
   onOpenIncomeTax,
@@ -60,6 +59,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [showUploadMenu, setShowUploadMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const uploadMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const currentYear = new Date().getFullYear();
   const quarters = [
@@ -71,30 +74,45 @@ export const Navbar: React.FC<NavbarProps> = ({
     `${currentYear - 1}-Q3`
   ];
 
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (uploadMenuRef.current && !uploadMenuRef.current.contains(event.target as Node)) {
+        setShowUploadMenu(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
-    <header className="bg-slate-900/95 backdrop-blur-md text-slate-100 border-b border-slate-800/80 sticky top-0 z-30 shadow-md shadow-black/40">
+    <header className="bg-slate-900/95 backdrop-blur-md text-slate-100 border-b border-slate-800/80 sticky top-0 z-40 shadow-lg shadow-black/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Brand Logo & Outlet Context */}
+        
+        {/* Top Tier: Logo, Filters & Primary Utility Actions */}
+        <div className="flex items-center justify-between h-16 border-b border-slate-800/60 lg:border-none">
+          
+          {/* Brand & Context */}
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 rounded-xl flex items-center justify-center shrink-0">
+            <div className="p-2 bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
               <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-sm sm:text-base font-bold text-slate-100 tracking-tight flex items-center gap-1.5">
-                  <span>CR Maldives</span>
-                </h1>
-                <span className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded-full tracking-wide">
+                <h1 className="text-base font-bold text-slate-100 tracking-tight">CR Maldives</h1>
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-full tracking-wide">
                   GST 8% &bull; MVR
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
+              <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium mt-0.5">
                 <Store className="w-3 h-3 text-emerald-400 shrink-0" />
-                <span className="text-emerald-300 font-bold truncate max-w-[150px] sm:max-w-[200px]">
+                <span className="text-emerald-400/90 font-semibold truncate max-w-[140px] sm:max-w-[220px]">
                   {currentUser?.role === "super_admin"
                     ? selectedOutlet === "ALL"
-                      ? "All Outlets (Super Admin)"
+                      ? "All Outlets (Consolidated)"
                       : outlets.find((o) => o.id === selectedOutlet)?.name || "Selected Outlet"
                     : currentUser?.outlet_name || "Branch Outlet"}
                 </span>
@@ -102,17 +120,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Primary Header Controls & Action Toolbar */}
-          <div className="flex items-center space-x-2.5">
-            {/* Super Admin Outlet Selector Filter */}
+          {/* Desktop Global Filters & Primary Action Group */}
+          <div className="hidden lg:flex items-center space-x-3">
+            {/* Super Admin Outlet Selector */}
             {currentUser?.role === "super_admin" && (
-              <div className="hidden lg:flex items-center bg-slate-950/80 border border-amber-500/30 rounded-xl px-2.5 py-1.5 shadow-inner">
-                <Building2 className="w-3.5 h-3.5 text-amber-400 mr-1.5" />
-                <span className="text-[11px] text-amber-300/80 mr-1.5 font-bold">Outlet:</span>
+              <div className="flex items-center bg-slate-950/80 border border-amber-500/30 rounded-lg px-2.5 py-1.5 shadow-inner">
+                <Building2 className="w-3.5 h-3.5 text-amber-400 mr-1.5 shrink-0" />
+                <span className="text-xs text-amber-300/80 mr-1.5 font-bold">Outlet:</span>
                 <select
                   value={selectedOutlet}
                   onChange={(e) => onOutletChange(e.target.value)}
-                  className="bg-transparent text-xs text-amber-200 font-bold focus:outline-none cursor-pointer max-w-[160px] truncate"
+                  aria-label="Select Outlet"
+                  className="bg-transparent text-xs text-amber-200 font-bold focus:outline-none cursor-pointer max-w-[150px] truncate"
                 >
                   <option value="ALL" className="bg-slate-900 text-slate-100">
                     All Outlets (Consolidated)
@@ -126,12 +145,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
 
-            {/* Quarter Filter Selector */}
-            <div className="flex items-center bg-slate-950/80 border border-slate-800 rounded-xl px-2.5 py-1.5 shadow-inner">
-              <span className="text-[11px] text-slate-400 mr-2 font-medium hidden sm:inline">Quarter:</span>
+            {/* Quarter Filter */}
+            <div className="flex items-center bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-1.5 shadow-inner">
+              <Calendar className="w-3.5 h-3.5 text-slate-400 mr-1.5 shrink-0" />
+              <span className="text-xs text-slate-400 mr-1.5 font-medium">Period:</span>
               <select
                 value={selectedQuarter}
                 onChange={(e) => onQuarterChange(e.target.value)}
+                aria-label="Select Quarter"
                 className="bg-transparent text-xs text-slate-100 font-bold focus:outline-none cursor-pointer"
               >
                 {quarters.map((q) => (
@@ -142,56 +163,45 @@ export const Navbar: React.FC<NavbarProps> = ({
               </select>
             </div>
 
-            {/* Upload Split Button */}
-            <div className="relative">
-              <div className="inline-flex rounded-xl shadow-md overflow-hidden border border-emerald-500/40">
+            {/* Upload Button */}
+            <div className="relative" ref={uploadMenuRef}>
+              <div className="inline-flex rounded-lg shadow-sm overflow-hidden border border-emerald-500/40">
                 <button
                   onClick={() => onOpenUpload("file")}
-                  className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold transition-colors cursor-pointer"
                 >
-                  <PlusCircle className="w-4 h-4" />
+                  <PlusCircle className="w-3.5 h-3.5" />
                   <span>Upload Bill</span>
                 </button>
                 <button
                   onClick={() => setShowUploadMenu(!showUploadMenu)}
+                  aria-label="More upload options"
+                  aria-expanded={showUploadMenu}
                   className="px-2 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-emerald-100 border-l border-emerald-500/40 transition-colors cursor-pointer"
-                  title="More upload options"
                 >
                   <ChevronDown className="w-3.5 h-3.5" />
                 </button>
               </div>
 
               {showUploadMenu && (
-                <div
-                  className="absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1 z-50 text-xs"
-                  onMouseLeave={() => setShowUploadMenu(false)}
-                >
+                <div className="absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-lg shadow-xl py-1 z-50 text-xs">
                   <button
-                    onClick={() => {
-                      setShowUploadMenu(false);
-                      onOpenUpload("file");
-                    }}
-                    className="w-full text-left px-3.5 py-2 text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition-colors cursor-pointer"
+                    onClick={() => { setShowUploadMenu(false); onOpenUpload("file"); }}
+                    className="w-full text-left px-3 py-2 text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition-colors cursor-pointer"
                   >
                     <Upload className="w-4 h-4 text-emerald-400" />
                     <span>Upload Single File</span>
                   </button>
                   <button
-                    onClick={() => {
-                      setShowUploadMenu(false);
-                      onOpenUpload("camera");
-                    }}
-                    className="w-full text-left px-3.5 py-2 text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition-colors cursor-pointer"
+                    onClick={() => { setShowUploadMenu(false); onOpenUpload("camera"); }}
+                    className="w-full text-left px-3 py-2 text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition-colors cursor-pointer"
                   >
                     <Camera className="w-4 h-4 text-blue-400" />
-                    <span>Take Photo (Camera)</span>
+                    <span>Take Photo</span>
                   </button>
                   <button
-                    onClick={() => {
-                      setShowUploadMenu(false);
-                      onOpenUpload("batch");
-                    }}
-                    className="w-full text-left px-3.5 py-2 text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition-colors cursor-pointer"
+                    onClick={() => { setShowUploadMenu(false); onOpenUpload("batch"); }}
+                    className="w-full text-left px-3 py-2 text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition-colors cursor-pointer"
                   >
                     <Files className="w-4 h-4 text-purple-400" />
                     <span>Batch Upload Bills</span>
@@ -200,132 +210,47 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Export Excel Button */}
-            <button
-              onClick={onOpenExportExcel}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white border border-slate-700/80 hover:border-emerald-500/50 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm"
-              title="Export GST Purchases to Excel"
-            >
-              <FileText className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden md:inline">Export Excel</span>
-            </button>
-
-            {/* Revenue & Sales Button */}
-            {onOpenRevenue && (
-              <button
-                onClick={onOpenRevenue}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm"
-                title="Revenue & Sales Management Center"
-              >
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden md:inline">Revenue & Sales</span>
-              </button>
-            )}
-
-            {/* Fixed Asset Register Button */}
-            {onOpenAssets && (
-              <button
-                onClick={onOpenAssets}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 border border-purple-500/40 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm"
-                title="Fixed Asset Register & MIRA Capital Allowance Calculator"
-              >
-                <Calculator className="w-3.5 h-3.5 text-purple-400" />
-                <span className="hidden lg:inline">Asset Register</span>
-              </button>
-            )}
-
-            {/* Income Tax MIRA 604 Button */}
-            {onOpenIncomeTax && (
-              <button
-                onClick={onOpenIncomeTax}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white border border-slate-700/80 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm"
-                title="MIRA 604 Income Tax Return & Schedule 1"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden lg:inline">Income Tax 604</span>
-              </button>
-            )}
-
-            {/* Super Admin Nav Shortcuts */}
-            {currentUser?.role === "super_admin" && (
-              <div className="flex items-center space-x-1.5 pl-1 border-l border-slate-800">
-                <button
-                  onClick={onOpenOutletsModal}
-                  className="p-1.5 bg-slate-800 hover:bg-slate-750 text-emerald-400 hover:text-emerald-300 rounded-xl border border-slate-700/80 transition-all cursor-pointer"
-                  title="Manage Outlets"
-                >
-                  <Store className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={onOpenUsersModal}
-                  className="p-1.5 bg-slate-800 hover:bg-slate-750 text-blue-400 hover:text-blue-300 rounded-xl border border-slate-700/80 transition-all cursor-pointer"
-                  title="Manage Users"
-                >
-                  <Users className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
-            {/* Settings Button */}
-            <button
-              onClick={onOpenSettings}
-              className="p-1.5 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white rounded-xl border border-slate-700/80 hover:border-slate-600 transition-all cursor-pointer shadow-sm"
-              title="Settings"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-
-            {/* User Profile Menu */}
-            <div className="relative pl-1 border-l border-slate-800">
+            {/* User Profile */}
+            <div className="relative pl-2 border-l border-slate-800" ref={userMenuRef}>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center space-x-2 px-2.5 py-1 bg-slate-800/90 hover:bg-slate-750 border border-slate-700 rounded-xl text-xs cursor-pointer transition-colors"
+                aria-expanded={showUserMenu}
+                aria-label="User Account Menu"
+                className="flex items-center space-x-2.5 px-2 py-1 hover:bg-slate-800/80 border border-transparent hover:border-slate-700/80 rounded-lg text-xs cursor-pointer transition-all"
               >
-                <div className="w-6 h-6 bg-emerald-500/20 border border-emerald-500/40 rounded-full flex items-center justify-center font-bold text-emerald-300 text-[11px]">
+                <div className="w-7 h-7 bg-emerald-500/20 border border-emerald-500/40 rounded-full flex items-center justify-center font-bold text-emerald-300 text-xs">
                   {(currentUser?.name || currentUser?.username || "U").charAt(0).toUpperCase()}
                 </div>
-                <div className="text-left hidden sm:block">
-                  <div className="font-bold text-slate-100 text-[11px] max-w-[100px] truncate">
+                <div className="text-left hidden xl:block">
+                  <div className="font-semibold text-slate-100 text-xs max-w-[100px] truncate">
                     {currentUser?.name || currentUser?.username || "User"}
                   </div>
-                  <div className="text-[9px] text-slate-400 font-medium">
+                  <div className="text-[10px] text-slate-400 capitalize">
                     {currentUser?.role === "super_admin" ? "Super Admin" : "Outlet User"}
                   </div>
                 </div>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
 
               {showUserMenu && (
-                <div
-                  className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 z-50 text-xs"
-                  onMouseLeave={() => setShowUserMenu(false)}
-                >
-                  <div className="px-3.5 py-2 border-b border-slate-800">
-                    <div className="font-bold text-slate-100">{currentUser?.name || currentUser?.username || "User"}</div>
-                    <div className="text-[11px] text-slate-400 font-mono">@{currentUser?.username}</div>
-                    <div className="text-[10px] text-emerald-400 font-semibold mt-1">
-                      {currentUser?.outlet_name}
-                    </div>
+                <div className="absolute right-0 mt-2 w-52 bg-slate-900 border border-slate-800 rounded-lg shadow-xl py-1 z-50 text-xs">
+                  <div className="px-3 py-2 border-b border-slate-800">
+                    <div className="font-semibold text-slate-100">{currentUser?.name || "User"}</div>
+                    <div className="text-[10px] text-slate-400 font-mono">@{currentUser?.username}</div>
                   </div>
 
                   {currentUser?.role === "super_admin" && (
                     <>
                       <button
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          onOpenOutletsModal();
-                        }}
-                        className="w-full text-left px-3.5 py-2 text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition-colors cursor-pointer"
+                        onClick={() => { setShowUserMenu(false); onOpenOutletsModal(); }}
+                        className="w-full text-left px-3 py-2 text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition-colors cursor-pointer"
                       >
                         <Store className="w-4 h-4 text-emerald-400" />
                         <span>Manage Outlets</span>
                       </button>
                       <button
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          onOpenUsersModal();
-                        }}
-                        className="w-full text-left px-3.5 py-2 text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition-colors cursor-pointer"
+                        onClick={() => { setShowUserMenu(false); onOpenUsersModal(); }}
+                        className="w-full text-left px-3 py-2 text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition-colors cursor-pointer"
                       >
                         <Users className="w-4 h-4 text-blue-400" />
                         <span>Manage Users</span>
@@ -334,11 +259,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
 
                   <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onLogout();
-                    }}
-                    className="w-full text-left px-3.5 py-2 text-rose-400 hover:bg-rose-500/10 flex items-center space-x-2 transition-colors cursor-pointer border-t border-slate-800/80 mt-1"
+                    onClick={() => { setShowUserMenu(false); onOpenSettings(); }}
+                    className="w-full text-left px-3 py-2 text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition-colors cursor-pointer"
+                  >
+                    <Settings className="w-4 h-4 text-slate-400" />
+                    <span>Settings</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setShowUserMenu(false); onLogout(); }}
+                    className="w-full text-left px-3 py-2 text-rose-400 hover:bg-rose-500/10 flex items-center space-x-2 transition-colors cursor-pointer border-t border-slate-800 mt-1"
                   >
                     <LogOut className="w-4 h-4 text-rose-400" />
                     <span>Sign Out</span>
@@ -347,8 +277,188 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
           </div>
+
+          {/* Mobile Menu Toggle */}
+          <div className="flex lg:hidden items-center space-x-2">
+            <button
+              onClick={() => onOpenUpload("file")}
+              className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              title="Upload Bill"
+            >
+              <PlusCircle className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle navigation menu"
+              className="p-2 text-slate-300 hover:text-white bg-slate-800 rounded-lg cursor-pointer"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom Tier Desktop Navigation Modules */}
+        <div className="hidden lg:flex items-center justify-between h-11 border-t border-slate-800/60 py-1">
+          <nav className="flex items-center space-x-1">
+            <button
+              onClick={onOpenExportExcel}
+              className="flex items-center space-x-2 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer"
+            >
+              <FileText className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Export GST Excel</span>
+            </button>
+
+            {onOpenRevenue && (
+              <button
+                onClick={onOpenRevenue}
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer"
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Revenue & Sales</span>
+              </button>
+            )}
+
+            {onOpenAssets && (
+              <button
+                onClick={onOpenAssets}
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer"
+              >
+                <Calculator className="w-3.5 h-3.5 text-purple-400" />
+                <span>Asset Register</span>
+              </button>
+            )}
+
+            {onOpenIncomeTax && (
+              <button
+                onClick={onOpenIncomeTax}
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-amber-400" />
+                <span>Income Tax (MIRA 604)</span>
+              </button>
+            )}
+          </nav>
+
+          {/* Quick Management Shortcuts for Super Admin */}
+          {currentUser?.role === "super_admin" && (
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={onOpenOutletsModal}
+                className="flex items-center space-x-1.5 px-2.5 py-1 text-xs text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer"
+              >
+                <Store className="w-3.5 h-3.5" />
+                <span>Outlets</span>
+              </button>
+              <button
+                onClick={onOpenUsersModal}
+                className="flex items-center space-x-1.5 px-2.5 py-1 text-xs text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Users</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Mobile Drawer */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden bg-slate-900 border-b border-slate-800 px-4 pt-3 pb-4 space-y-3">
+          {/* Mobile Context Filters */}
+          <div className="grid grid-cols-1 gap-2 pt-1 pb-2 border-b border-slate-800">
+            {currentUser?.role === "super_admin" && (
+              <div className="flex items-center justify-between bg-slate-950 px-3 py-2 rounded-lg border border-amber-500/20">
+                <span className="text-xs text-amber-300 font-medium">Outlet:</span>
+                <select
+                  value={selectedOutlet}
+                  onChange={(e) => onOutletChange(e.target.value)}
+                  className="bg-transparent text-xs text-amber-200 font-bold focus:outline-none"
+                >
+                  <option value="ALL" className="bg-slate-900">All Outlets</option>
+                  {outlets.map((o) => (
+                    <option key={o.id} value={o.id} className="bg-slate-900">{o.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between bg-slate-950 px-3 py-2 rounded-lg border border-slate-800">
+              <span className="text-xs text-slate-400 font-medium">Period:</span>
+              <select
+                value={selectedQuarter}
+                onChange={(e) => onQuarterChange(e.target.value)}
+                className="bg-transparent text-xs text-slate-200 font-bold focus:outline-none"
+              >
+                {quarters.map((q) => (
+                  <option key={q} value={q} className="bg-slate-900">{q === "ALL" ? "All Quarters" : q}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Nav Items Mobile */}
+          <div className="space-y-1">
+            <button
+              onClick={() => { setMobileMenuOpen(false); onOpenExportExcel(); }}
+              className="w-full flex items-center space-x-3 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 rounded-lg"
+            >
+              <FileText className="w-4 h-4 text-emerald-400" />
+              <span>Export GST Excel</span>
+            </button>
+
+            {onOpenRevenue && (
+              <button
+                onClick={() => { setMobileMenuOpen(false); onOpenRevenue(); }}
+                className="w-full flex items-center space-x-3 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 rounded-lg"
+              >
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                <span>Revenue & Sales</span>
+              </button>
+            )}
+
+            {onOpenAssets && (
+              <button
+                onClick={() => { setMobileMenuOpen(false); onOpenAssets(); }}
+                className="w-full flex items-center space-x-3 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 rounded-lg"
+              >
+                <Calculator className="w-4 h-4 text-purple-400" />
+                <span>Asset Register</span>
+              </button>
+            )}
+
+            {onOpenIncomeTax && (
+              <button
+                onClick={() => { setMobileMenuOpen(false); onOpenIncomeTax(); }}
+                className="w-full flex items-center space-x-3 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 rounded-lg"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-amber-400" />
+                <span>Income Tax (MIRA 604)</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => { setMobileMenuOpen(false); onOpenSettings(); }}
+              className="w-full flex items-center space-x-3 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 rounded-lg"
+            >
+              <Settings className="w-4 h-4 text-slate-400" />
+              <span>Settings</span>
+            </button>
+          </div>
+
+          {/* User Signout in Mobile Menu */}
+          <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+            <div className="text-xs text-slate-400">
+              Signed in as <span className="text-slate-200 font-semibold">{currentUser?.username}</span>
+            </div>
+            <button
+              onClick={() => { setMobileMenuOpen(false); onLogout(); }}
+              className="px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg text-xs font-semibold"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FIX-011-FINE",
+  "description": "MIRA Statutory Notice of Late Filing Penalty for GST 205",
+  "sourceDocument": {
+    "fileName": "mira_late_filing_penalty_notice.pdf",
+    "supplierName": "Maldives Inland Revenue Authority (MIRA)",
+    "supplierTin": "1000000GST001",
+    "invoiceNumber": "MIRA-PEN-2026-00412",
+    "issueDate": "2026-05-10",
+    "currency": "MVR"
+  },
+  "expectedExtraction": {
+    "subtotal": 5000.00,
+    "gstAmount": 0.00,
+    "totalAmount": 5000.00,
+    "gstRate": 0
+  },
+  "expectedAssertions": {
+    "documentType": "FINE_PENALTY",
+    "accountingCategory": "operating_expenses.fines_penalties",
+    "subcategory": "late_filing_penalty",
+    "gstTreatment": "OUT_OF_SCOPE",
+    "miraCategory": "non_deductible_fine",
+    "incomeTaxTreatment": "NON_DEDUCTIBLE",
+    "reviewRequired": true,
+    "adjustmentCode": "ADJ-FINES"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FIX-002-MWSC",
+  "description": "MWSC Utility Water Bill for restaurant premises",
+  "sourceDocument": {
+    "fileName": "mwsc_water_invoice_2026_06.pdf",
+    "supplierName": "Male' Water & Sewerage Company Pvt Ltd (MWSC)",
+    "supplierTin": "1000018GST001",
+    "invoiceNumber": "MWSC-INV-2026-44910",
+    "issueDate": "2026-06-28",
+    "currency": "MVR"
+  },
+  "expectedExtraction": {
+    "subtotal": 4500.00,
+    "gstAmount": 360.00,
+    "totalAmount": 4860.00,
+    "gstRate": 8
+  },
+  "expectedAssertions": {
+    "documentType": "UTILITY_BILL",
+    "accountingCategory": "utilities.water",
+    "subcategory": "water",
+    "gstTreatment": "STANDARD_RATED_8",
+    "miraCategory": "other_expenses",
+    "incomeTaxTreatment": "DEDUCTIBLE",
+    "reviewRequired": false,
+    "adjustmentCode": "NONE"
+  }
+}

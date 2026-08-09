@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FIX-005-HANDWRITTEN",
+  "description": "Handwritten receipt from unregistered vendor at Malé Local Market for fresh produce",
+  "sourceDocument": {
+    "fileName": "local_market_fresh_produce_receipt.jpg",
+    "supplierName": "Malé Local Market Stall No 14",
+    "supplierTin": "",
+    "invoiceNumber": "REC-0012",
+    "issueDate": "2026-07-05",
+    "currency": "MVR"
+  },
+  "expectedExtraction": {
+    "subtotal": 1200.00,
+    "gstAmount": 0.00,
+    "totalAmount": 1200.00,
+    "gstRate": 0
+  },
+  "expectedAssertions": {
+    "documentType": "HANDWRITTEN_RECEIPT",
+    "accountingCategory": "cost_of_sales.local_supplies",
+    "subcategory": "fresh_produce",
+    "gstTreatment": "NO_INPUT_TAX",
+    "miraCategory": "cost_of_sales",
+    "incomeTaxTreatment": "DEDUCTIBLE",
+    "reviewRequired": true,
+    "adjustmentCode": "NONE"
+  }
+}

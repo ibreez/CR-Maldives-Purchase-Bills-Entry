@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FIX-001-STELCO",
+  "description": "STELCO Electricity Bill for commercial outlet in Malé",
+  "sourceDocument": {
+    "fileName": "stelco_bill_2026_06.pdf",
+    "supplierName": "State Electric Company Limited (STELCO)",
+    "supplierTin": "1000004GST001",
+    "invoiceNumber": "STEL-2026-88492",
+    "issueDate": "2026-06-30",
+    "currency": "MVR"
+  },
+  "expectedExtraction": {
+    "subtotal": 12500.00,
+    "gstAmount": 1000.00,
+    "totalAmount": 13500.00,
+    "gstRate": 8
+  },
+  "expectedAssertions": {
+    "documentType": "UTILITY_BILL",
+    "accountingCategory": "utilities.electricity",
+    "subcategory": "electricity",
+    "gstTreatment": "STANDARD_RATED_8",
+    "miraCategory": "other_expenses",
+    "incomeTaxTreatment": "DEDUCTIBLE",
+    "reviewRequired": false,
+    "adjustmentCode": "NONE"
+  }
+}

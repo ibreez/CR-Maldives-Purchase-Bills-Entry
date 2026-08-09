@@ -1,0 +1,29 @@
+{
+  "fixtureId": "FIX-009-EQUIPMENT",
+  "description": "Commercial Kitchen Combination Oven purchase for restaurant expansion",
+  "sourceDocument": {
+    "fileName": "astron_kitchen_equipment_inv.pdf",
+    "supplierName": "Astron Hotel & Kitchen Supplies Pvt Ltd",
+    "supplierTin": "1000882GST001",
+    "invoiceNumber": "AST-2026-1029",
+    "issueDate": "2026-04-10",
+    "currency": "MVR"
+  },
+  "expectedExtraction": {
+    "subtotal": 120000.00,
+    "gstAmount": 9600.00,
+    "totalAmount": 129600.00,
+    "gstRate": 8
+  },
+  "expectedAssertions": {
+    "documentType": "ASSET_PURCHASE",
+    "accountingCategory": "capital_assets.machinery",
+    "subcategory": "commercial_ovens",
+    "gstTreatment": "STANDARD_RATED_8",
+    "miraCategory": "capital_asset_schedule2",
+    "incomeTaxTreatment": "CAPITAL_ALLOWANCE",
+    "reviewRequired": false,
+    "adjustmentCode": "ADJ-CAPITAL",
+    "miraAssetClass": "Plant & equipment"
+  }
+}
