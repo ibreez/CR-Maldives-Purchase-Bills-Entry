@@ -14,6 +14,10 @@ import { SettingsModal } from "./components/SettingsModal";
 import { LoginModal } from "./components/LoginModal";
 import { OutletManagementModal } from "./components/OutletManagementModal";
 import { UserManagementModal } from "./components/UserManagementModal";
+import { IncomeTaxModal } from "./components/IncomeTaxModal";
+import { RevenueManagementModal } from "./components/RevenueManagementModal";
+import { FixedAssetRegisterModal } from "./components/FixedAssetRegisterModal";
+import { TaxReviewDashboard } from "./components/TaxReviewDashboard";
 import { BillRecord, DashboardSummary, AuthUser, Outlet } from "./types";
 
 export default function App() {
@@ -45,6 +49,9 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isOutletsModalOpen, setIsOutletsModalOpen] = useState(false);
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
+  const [isIncomeTaxOpen, setIsIncomeTaxOpen] = useState(false);
+  const [isRevenueOpen, setIsRevenueOpen] = useState(false);
+  const [isAssetsOpen, setIsAssetsOpen] = useState(false);
 
   // Check initial authentication status
   useEffect(() => {
@@ -273,6 +280,9 @@ export default function App() {
         onOpenGoogleSheets={() => setIsGoogleSheetsOpen(true)}
         onOpenOutletsModal={() => setIsOutletsModalOpen(true)}
         onOpenUsersModal={() => setIsUsersModalOpen(true)}
+        onOpenRevenue={() => setIsRevenueOpen(true)}
+        onOpenAssets={() => setIsAssetsOpen(true)}
+        onOpenIncomeTax={() => setIsIncomeTaxOpen(true)}
         onLogout={handleLogout}
       />
 
@@ -383,6 +393,33 @@ export default function App() {
           onUsersUpdated={() => {
             fetchSummary();
           }}
+        />
+      )}
+
+      {isRevenueOpen && (
+        <RevenueManagementModal
+          isOpen={isRevenueOpen}
+          onClose={() => setIsRevenueOpen(false)}
+          currentUser={currentUser}
+          outlets={outlets}
+        />
+      )}
+
+      {isAssetsOpen && (
+        <FixedAssetRegisterModal
+          isOpen={isAssetsOpen}
+          onClose={() => setIsAssetsOpen(false)}
+          currentUser={currentUser}
+          outlets={outlets}
+        />
+      )}
+
+      {isIncomeTaxOpen && (
+        <TaxReviewDashboard
+          isOpen={isIncomeTaxOpen}
+          onClose={() => setIsIncomeTaxOpen(false)}
+          currentUser={currentUser}
+          outlets={outlets}
         />
       )}
     </div>

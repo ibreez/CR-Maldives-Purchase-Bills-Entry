@@ -125,6 +125,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </p>
           </div>
 
+          {/* Taxpayer Profile & Accounting Basis */}
+          <div className="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/80 space-y-3 shadow-sm">
+            <label className="block text-slate-200 font-bold flex items-center space-x-2">
+              <Building className="w-4 h-4 text-emerald-400" />
+              <span>Taxpayer Entity Profile & MIRA Tax Brackets</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="block text-slate-400 mb-1 font-semibold">Entity Type</label>
+                <select
+                  value={settings.taxpayerProfile || "COMPANY"}
+                  onChange={(e) => setSettings({ ...settings, taxpayerProfile: e.target.value as any })}
+                  className="w-full bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-semibold focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
+                >
+                  <option value="COMPANY">Company / Pvt Ltd (15% Tax above MVR 500k)</option>
+                  <option value="SOLE_PROPRIETOR">Sole Proprietor / Individual (Progressive 0%-15%)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1 font-semibold">Accounting Basis</label>
+                <select
+                  value={settings.accountingBasis || "ACCRUAL"}
+                  onChange={(e) => setSettings({ ...settings, accountingBasis: e.target.value as any })}
+                  className="w-full bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-semibold focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
+                >
+                  <option value="ACCRUAL">Accrual Basis (Standard MIRA Rule)</option>
+                  <option value="CASH">Cash Basis (Elected ≤ MVR 10M Revenue)</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Companies pay 15% corporate tax on taxable income over MVR 500,000. Sole proprietors use individual progressive brackets (exempt up to MVR 720,000).
+            </p>
+          </div>
+
           {/* Auto approve setting */}
           <div className="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/80 flex items-center justify-between gap-3 shadow-sm">
             <div>

@@ -13,7 +13,9 @@ import {
   LogOut,
   Shield,
   User as UserIcon,
-  Building2
+  Building2,
+  TrendingUp,
+  Calculator
 } from "lucide-react";
 import { DashboardSummary, AuthUser, Outlet } from "../types";
 
@@ -31,6 +33,9 @@ interface NavbarProps {
   onOpenGoogleSheets: () => void;
   onOpenOutletsModal: () => void;
   onOpenUsersModal: () => void;
+  onOpenIncomeTax?: () => void;
+  onOpenRevenue?: () => void;
+  onOpenAssets?: () => void;
   onLogout: () => void;
 }
 
@@ -48,6 +53,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenGoogleSheets,
   onOpenOutletsModal,
   onOpenUsersModal,
+  onOpenIncomeTax,
+  onOpenRevenue,
+  onOpenAssets,
   onLogout
 }) => {
   const [showUploadMenu, setShowUploadMenu] = useState(false);
@@ -201,6 +209,42 @@ export const Navbar: React.FC<NavbarProps> = ({
               <FileText className="w-3.5 h-3.5 text-emerald-400" />
               <span className="hidden md:inline">Export Excel</span>
             </button>
+
+            {/* Revenue & Sales Button */}
+            {onOpenRevenue && (
+              <button
+                onClick={onOpenRevenue}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm"
+                title="Revenue & Sales Management Center"
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden md:inline">Revenue & Sales</span>
+              </button>
+            )}
+
+            {/* Fixed Asset Register Button */}
+            {onOpenAssets && (
+              <button
+                onClick={onOpenAssets}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 border border-purple-500/40 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm"
+                title="Fixed Asset Register & MIRA Capital Allowance Calculator"
+              >
+                <Calculator className="w-3.5 h-3.5 text-purple-400" />
+                <span className="hidden lg:inline">Asset Register</span>
+              </button>
+            )}
+
+            {/* Income Tax MIRA 604 Button */}
+            {onOpenIncomeTax && (
+              <button
+                onClick={onOpenIncomeTax}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white border border-slate-700/80 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm"
+                title="MIRA 604 Income Tax Return & Schedule 1"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden lg:inline">Income Tax 604</span>
+              </button>
+            )}
 
             {/* Super Admin Nav Shortcuts */}
             {currentUser?.role === "super_admin" && (

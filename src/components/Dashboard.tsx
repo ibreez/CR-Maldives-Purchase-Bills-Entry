@@ -49,7 +49,7 @@ interface DashboardProps {
   onDeleteBill: (id: string) => void;
 }
 
-type SortField = "outlet" | "supplier" | "date" | "taxable" | "gst" | "total" | "confidence" | "status";
+type SortField = "outlet" | "supplier" | "date" | "mira_category" | "taxable" | "gst" | "total" | "confidence" | "status";
 type SortDirection = "asc" | "desc";
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -72,6 +72,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [selectedMiraCategory, setSelectedMiraCategory] = useState<string>("ALL");
+  const [selectedTaxStatusFilter, setSelectedTaxStatusFilter] = useState<string>("ALL");
 
   const isSuperAdmin = currentUser?.role === "super_admin";
 
@@ -84,11 +86,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
       ? Math.round(bills.reduce((acc, b) => acc + (b.confidence?.overall || 0), 0) / bills.length)
       : 100;
 
-  // Filter bills by tab
+  // Filter bills by tab & MIRA filters
   const filteredBills = bills.filter((b) => {
-    if (activeTab === "pending_review") return b.status === "pending_review";
-    if (activeTab === "verified") return b.status === "verified";
-    if (activeTab === "rejected") return b.status === "rejected";
+    if (activeTab === "pending_review" && b.status !== "pending_review") return false;
+    if (activeTab === "verified" && b.status !== "verified") return false;
+    if (activeTab === "rejected" && b.status !== "rejected") return false;
+
+    const data = b.verifiedData || b.extractedData;
+
+    if (selectedMiraCategory !== "ALL") {
+      const cat = data.mira_schedule1_category || "Other Expenses";
+      if (cat !== selectedMiraCategory) return false;
+    }
+
+    if (selectedTaxStatusFilter !== "ALL") {
+      if (data.tax_status !== selectedTaxStatusFilter) return false;
+    }
+
     return true;
   });
 
@@ -112,6 +126,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       case "date":
         valA = new Date(dataA.invoice.date || a.uploadDate).getTime();
         valB = new Date(dataB.invoice.date || b.uploadDate).getTime();
+        break;
+      case "mira_category":
+        valA = (dataA.mira_schedule1_category || "Other Expenses").toLowerCase();
+        valB = (dataB.mira_schedule1_category || "Other Expenses").toLowerCase();
         break;
       case "taxable":
         valA = dataA.totals.taxable_value ?? 0;
@@ -457,6 +475,55 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
+        {/* MIRA Schedule 1 Category & Tax Status Quick Filters */}
+        <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-slate-800/80 text-xs">
+          <div className="flex items-center space-x-1.5 text-emerald-400 font-bold uppercase text-[10px] tracking-wider">
+            <Filter className="w-3.5 h-3.5" />
+            <span>MIRA Filters:</span>
+          </div>
+
+          <select
+            value={selectedMiraCategory}
+            onChange={(e) => setSelectedMiraCategory(e.target.value)}
+            className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-emerald-300 font-semibold focus:border-emerald-500 focus:outline-none"
+          >
+            <option value="ALL">All MIRA Categories</option>
+            <option value="Cost of Sales">Cost of Sales</option>
+            <option value="Insurance Premium">Insurance Premium</option>
+            <option value="Professional & Consulting Fees">Professional & Consulting Fees</option>
+            <option value="Rental, Lease & License">Rental, Lease & License</option>
+            <option value="Repairs & Maintenance">Repairs & Maintenance</option>
+            <option value="Related Party Expenses">Related Party Expenses</option>
+            <option value="Salaries & Wages">Salaries & Wages</option>
+            <option value="Sales & Marketing">Sales & Marketing</option>
+            <option value="Other Expenses">Other Expenses</option>
+            <option value="Capital Asset (Schedule 2)">Capital Asset (Schedule 2)</option>
+          </select>
+
+          <select
+            value={selectedTaxStatusFilter}
+            onChange={(e) => setSelectedTaxStatusFilter(e.target.value)}
+            className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-amber-300 font-semibold focus:border-emerald-500 focus:outline-none"
+          >
+            <option value="ALL">All Tax Statuses</option>
+            <option value="TAX_CHARGED">Tax Charged (Separate Line)</option>
+            <option value="TAX_INCLUDED">Tax Included</option>
+            <option value="NO_TAX">No Tax / Non-GST</option>
+          </select>
+
+          {(selectedMiraCategory !== "ALL" || selectedTaxStatusFilter !== "ALL") && (
+            <button
+              onClick={() => {
+                setSelectedMiraCategory("ALL");
+                setSelectedTaxStatusFilter("ALL");
+              }}
+              className="text-[11px] text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer ml-1"
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
+
         {/* Data Table */}
         <div className="overflow-x-auto rounded-xl border border-slate-800/80 shadow-inner bg-slate-950/40">
           <table className="w-full text-left text-xs text-slate-300 border-collapse">
@@ -478,6 +545,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 >
                   <span>Supplier & TIN</span>
                   {renderSortIcon("supplier")}
+                </th>
+                <th
+                  onClick={() => handleSort("mira_category")}
+                  className="p-3 cursor-pointer select-none hover:text-slate-200 group transition-colors"
+                >
+                  <span>MIRA Category</span>
+                  {renderSortIcon("mira_category")}
                 </th>
                 <th
                   onClick={() => handleSort("date")}
@@ -527,7 +601,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <tbody className="divide-y divide-slate-800/60 bg-slate-900/40">
               {sortedBills.length === 0 ? (
                 <tr>
-                  <td colSpan={isSuperAdmin ? 10 : 9} className="p-12 text-center text-slate-500 text-xs">
+                  <td colSpan={isSuperAdmin ? 11 : 10} className="p-12 text-center text-slate-500 text-xs">
                     <p className="font-semibold text-slate-300">No purchase bills match the selected filter.</p>
                     <p className="text-[11px] mt-1 text-slate-500">
                       Click <button onClick={() => onOpenUpload("file")} className="text-emerald-400 font-bold underline cursor-pointer">Upload Bill</button> to process a new purchase receipt.
@@ -568,9 +642,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <p className="font-semibold text-slate-100 truncate max-w-[130px] text-xs" title={bill.fileName}>
                               {bill.fileName}
                             </p>
-                            <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                              {new Date(bill.uploadDate).toLocaleDateString()}
-                            </p>
+                            <div className="flex items-center space-x-1.5 mt-0.5">
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                {new Date(bill.uploadDate).toLocaleDateString()}
+                              </span>
+                              {data.document_type === "HANDWRITTEN_PURCHASE" && (
+                                <span className="px-1.5 py-0.2 bg-purple-500/15 border border-purple-500/30 text-purple-300 rounded text-[9px] font-bold">
+                                  Handwritten
+                                </span>
+                              )}
+                              {data.document_type === "RECEIPT" && (
+                                <span className="px-1.5 py-0.2 bg-blue-500/15 border border-blue-500/30 text-blue-300 rounded text-[9px] font-bold">
+                                  Receipt
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -580,11 +666,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="font-bold text-slate-100 truncate max-w-[170px]" title={data.supplier.name || ""}>
                           {data.supplier.name || <span className="text-slate-500 italic font-normal">Unknown Supplier</span>}
                         </div>
-                        <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
-                          TIN: {data.supplier.gstin ? (
-                            <span className="font-semibold">{data.supplier.gstin}</span>
+                        <div className="flex items-center space-x-2 text-[10px] font-mono mt-0.5">
+                          <span className="text-emerald-400">
+                            TIN: {data.supplier.gstin ? (
+                              <span className="font-semibold">{data.supplier.gstin}</span>
+                            ) : (
+                              <span className="text-amber-400 italic">No TIN</span>
+                            )}
+                          </span>
+                          {data.expense_category && data.expense_category !== "Other" && (
+                            <span className="px-1.5 py-0.2 bg-slate-800 text-slate-300 border border-slate-700 rounded text-[9px] font-sans font-medium">
+                              {data.expense_category}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* MIRA Category & Tax Treatment */}
+                      <td className="p-3">
+                        <div className="flex flex-col gap-1">
+                          <span className="px-2 py-0.5 bg-slate-800/90 border border-slate-700/80 text-emerald-300 rounded text-[10px] font-bold truncate max-w-[150px]" title={data.mira_schedule1_category || "Other Expenses"}>
+                            {data.mira_schedule1_category || "Other Expenses"}
+                          </span>
+                          {data.income_tax_treatment === "CAPITAL_ALLOWANCE" || data.mira_schedule1_category === "Capital Asset (Schedule 2)" ? (
+                            <span className="text-[9px] text-amber-400 font-mono font-bold flex items-center space-x-0.5">
+                              <span>⚡ Schedule 2 Asset</span>
+                            </span>
+                          ) : data.income_tax_treatment === "NON_DEDUCTIBLE" ? (
+                            <span className="text-[9px] text-rose-400 font-mono font-bold flex items-center space-x-0.5">
+                              <span>⛔ Non-Deductible</span>
+                            </span>
                           ) : (
-                            <span className="text-amber-400 italic">Missing TIN</span>
+                            <span className="text-[9px] text-slate-400 font-mono">
+                              100% Tax Deductible
+                            </span>
                           )}
                         </div>
                       </td>

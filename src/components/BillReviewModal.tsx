@@ -16,7 +16,9 @@ import {
   DollarSign,
   Info,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileText,
+  History
 } from "lucide-react";
 import { BillRecord, ExtractedBillData, InvoiceLineItem } from "../types";
 
@@ -217,19 +219,31 @@ export const BillReviewModal: React.FC<BillReviewModalProps> = ({
           </div>
         </div>
 
-        {/* Validation Banners */}
-        {bill.validation.issues.length > 0 && (
-          <div className="bg-amber-950/40 border-b border-amber-800/50 px-6 py-2.5 flex items-center space-x-3 text-xs overflow-x-auto">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-            <div className="flex items-center space-x-4 truncate text-amber-200 font-medium">
-              {bill.validation.issues.map((issue, idx) => (
-                <span key={idx} className="flex items-center space-x-1 whitespace-nowrap">
-                  <span>⚠️ {issue.message}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+            {/* Validation Banners / Review Reason */}
+            {(bill.needs_review || bill.validation.issues.length > 0 || bill.review_reason) && (
+              <div className="bg-amber-950/50 border-b border-amber-800/60 px-6 py-3 flex items-center justify-between text-xs text-amber-200">
+                <div className="flex items-center space-x-3 overflow-x-auto">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-amber-300 block">Needs Review: {bill.review_reason || "Please verify extracted numbers before approving."}</span>
+                    {bill.validation.issues.length > 0 && (
+                      <div className="flex flex-wrap gap-2 text-[11px] text-amber-200/80">
+                        {bill.validation.issues.map((issue, idx) => (
+                          <span key={idx} className="bg-amber-900/40 px-2 py-0.5 rounded border border-amber-700/50">
+                            • {issue.message}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {bill.ocr_attempts > 1 && (
+                  <span className="text-[10px] font-mono px-2.5 py-1 bg-slate-900/80 text-emerald-400 border border-slate-700 rounded-lg shrink-0 ml-3">
+                    OCR Attempt #{bill.ocr_attempts}
+                  </span>
+                )}
+              </div>
+            )}
 
         {/* Split View Container */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
@@ -288,6 +302,176 @@ export const BillReviewModal: React.FC<BillReviewModalProps> = ({
 
           {/* RIGHT SIDE: Extracted & Editable Fields */}
           <div className="lg:col-span-7 bg-slate-900/60 overflow-y-auto p-6 space-y-6">
+            {/* 0. Document Classification & Tax Status */}
+            <div className="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/80 space-y-3.5 shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                <div className="flex items-center space-x-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
+                  <FileText className="w-4 h-4" />
+                  <span>Document & Tax Classification</span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">
+                  {formData.document_type || "TAX_INVOICE"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-semibold">Document Type</label>
+                  <select
+                    value={formData.document_type || "TAX_INVOICE"}
+                    onChange={(e) =>
+                      setFormData((p) => ({
+                        ...p,
+                        document_type: e.target.value as any
+                      }))
+                    }
+                    className="w-full bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-semibold focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
+                  >
+                    <option value="TAX_INVOICE">Tax Invoice (GST Formal)</option>
+                    <option value="INVOICE">Invoice (No Tax Breakdown)</option>
+                    <option value="RECEIPT">Store / POS Receipt</option>
+                    <option value="HANDWRITTEN_PURCHASE">Handwritten Purchase Slip</option>
+                    <option value="CASH_PURCHASE">Cash Purchase Voucher</option>
+                    <option value="OTHER">Other / Misc Document</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-semibold">Tax Status</label>
+                  <select
+                    value={formData.tax_status || "TAX_CHARGED"}
+                    onChange={(e) =>
+                      setFormData((p) => ({
+                        ...p,
+                        tax_status: e.target.value as any,
+                        totals: e.target.value === "NO_TAX" ? { ...p.totals, gst_amount: 0 } : p.totals
+                      }))
+                    }
+                    className="w-full bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-semibold focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
+                  >
+                    <option value="TAX_CHARGED">Tax Charged (Separate Line)</option>
+                    <option value="TAX_INCLUDED">Tax Included in Prices</option>
+                    <option value="NO_TAX">No Tax / Tax Exempt</option>
+                    <option value="UNKNOWN">Unknown / Unclear</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-semibold">Expense Category</label>
+                  <select
+                    value={formData.expense_category || "Other"}
+                    onChange={(e) =>
+                      setFormData((p) => ({
+                        ...p,
+                        expense_category: e.target.value as any
+                      }))
+                    }
+                    className="w-full bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-semibold focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
+                  >
+                    <option value="Food Ingredients">Food Ingredients</option>
+                    <option value="Beverages">Beverages</option>
+                    <option value="Cleaning Supplies">Cleaning Supplies</option>
+                    <option value="Packaging">Packaging & Consumables</option>
+                    <option value="Stationery">Stationery & Office</option>
+                    <option value="Maintenance">Maintenance & Operations</option>
+                    <option value="Equipment">Equipment & Assets</option>
+                    <option value="Repairs">Repairs & Servicing</option>
+                    <option value="Transportation">Transportation & Freight</option>
+                    <option value="Utilities">Utilities & Rent</option>
+                    <option value="Other">Other Expenses</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* MIRA Schedule 1 & Income Tax Classification */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-2 border-t border-slate-800/60">
+                <div>
+                  <label className="block text-emerald-400 mb-1 font-semibold flex items-center justify-between">
+                    <span>MIRA Schedule 1 Tax Line</span>
+                    <span className="text-[10px] font-mono text-slate-400">Income Tax Form 604</span>
+                  </label>
+                  <select
+                    value={formData.mira_schedule1_category || "Other Expenses"}
+                    onChange={(e) =>
+                      setFormData((p) => ({
+                        ...p,
+                        mira_schedule1_category: e.target.value as any
+                      }))
+                    }
+                    className="w-full bg-slate-900/90 border border-emerald-500/40 rounded-xl px-3 py-2 text-slate-100 font-semibold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
+                  >
+                    <option value="Cost of Sales">Cost of Sales (Direct Purchases / Ingredients)</option>
+                    <option value="Insurance Premium">Insurance Premium</option>
+                    <option value="Professional & Consulting Fees">Professional & Consulting Fees</option>
+                    <option value="Rental, Lease & License">Rental, Lease & License Payments</option>
+                    <option value="Repairs & Maintenance">Repairs & Maintenance</option>
+                    <option value="Related Party Expenses">Related Party Expenses</option>
+                    <option value="Salaries & Wages">Salaries & Wages</option>
+                    <option value="Sales & Marketing">Sales & Marketing</option>
+                    <option value="Other Expenses">Other Operating Expenses</option>
+                    <option value="Capital Asset (Schedule 2)">Capital Asset (Schedule 2 Capital Allowance)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-emerald-400 mb-1 font-semibold flex items-center justify-between">
+                    <span>Tax Deductibility</span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      {(formData.deductible_percentage ?? 100) === 100 ? "100% Tax Deductible" : "Non-Deductible"}
+                    </span>
+                  </label>
+                  <select
+                    value={formData.income_tax_treatment || "DEDUCTIBLE_EXPENSE"}
+                    onChange={(e) =>
+                      setFormData((p) => ({
+                        ...p,
+                        income_tax_treatment: e.target.value as any,
+                        deductible_percentage: e.target.value === "NON_DEDUCTIBLE" || e.target.value === "EXCLUDED" ? 0 : 100
+                      }))
+                    }
+                    className="w-full bg-slate-900/90 border border-emerald-500/40 rounded-xl px-3 py-2 text-slate-100 font-semibold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
+                  >
+                    <option value="DEDUCTIBLE_EXPENSE">Deductible Business Expense (100% Deductible)</option>
+                    <option value="CAPITAL_ALLOWANCE">Capital Asset (Subject to Capital Allowance)</option>
+                    <option value="NON_DEDUCTIBLE">Non-Deductible (Fines, Income Tax, Personal)</option>
+                    <option value="EXCLUDED">Excluded / Non-Operating</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Visual Tax Routing Badges */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/60 text-[11px] font-mono">
+                <span className="text-slate-400 font-sans font-semibold">MIRA Tax Destination:</span>
+                {(formData.totals?.gst_amount || 0) > 0 || formData.tax_status === "TAX_CHARGED" || formData.tax_status === "TAX_INCLUDED" ? (
+                  <span className="px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold flex items-center space-x-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    <span>MIRA 205 GST Claim</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-400">
+                    Non-GST
+                  </span>
+                )}
+
+                {formData.income_tax_treatment === "CAPITAL_ALLOWANCE" || formData.document_type === "CAPITAL_EXPENDITURE" || formData.mira_schedule1_category === "Capital Asset (Schedule 2)" ? (
+                  <span className="px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold flex items-center space-x-1">
+                    <Building2 className="w-3 h-3 text-amber-400" />
+                    <span>Fixed Asset Register (Schedule 2)</span>
+                  </span>
+                ) : formData.income_tax_treatment === "NON_DEDUCTIBLE" ? (
+                  <span className="px-2.5 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold flex items-center space-x-1">
+                    <AlertTriangle className="w-3 h-3 text-rose-400" />
+                    <span>Tax Add-Back (Non-Deductible)</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold flex items-center space-x-1">
+                    <FileText className="w-3 h-3 text-emerald-400" />
+                    <span>Schedule 1 ({formData.mira_schedule1_category || "Other Expenses"})</span>
+                  </span>
+                )}
+              </div>
+            </div>
+
             {/* 1. Supplier Information */}
             <div className="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/80 space-y-3.5 shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
@@ -596,6 +780,30 @@ export const BillReviewModal: React.FC<BillReviewModalProps> = ({
                 className="w-full bg-slate-950/70 border border-slate-800/80 rounded-xl p-3 text-xs text-slate-100 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all"
               />
             </div>
+
+            {/* Audit Trail & History Log */}
+            {bill.audit_trail && bill.audit_trail.length > 0 && (
+              <div className="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/80 space-y-2.5">
+                <div className="flex items-center space-x-2 text-slate-400 font-bold text-xs uppercase tracking-wider border-b border-slate-800/80 pb-2">
+                  <History className="w-4 h-4 text-emerald-400" />
+                  <span>Audit Trail & Activity Log</span>
+                </div>
+                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                  {bill.audit_trail.map((entry, idx) => (
+                    <div key={idx} className="flex items-start justify-between text-[11px] bg-slate-900/60 p-2 rounded-lg border border-slate-800/60">
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-slate-200 block">{entry.action}</span>
+                        <span className="text-slate-400 block">{entry.details}</span>
+                      </div>
+                      <div className="text-right shrink-0 ml-3">
+                        <span className="text-emerald-400 font-mono block">{entry.performedBy}</span>
+                        <span className="text-slate-500 text-[10px] block">{new Date(entry.date).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
