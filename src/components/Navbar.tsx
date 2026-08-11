@@ -210,6 +210,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
+            {/* Direct Settings Button */}
+            <button
+              onClick={onOpenSettings}
+              className="p-2 text-slate-400 hover:text-slate-100 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-600 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center space-x-1.5"
+              title="Application Settings"
+            >
+              <Settings className="w-4 h-4 text-emerald-400" />
+              <span className="hidden xl:inline text-xs font-semibold text-slate-200">Settings</span>
+            </button>
+
             {/* User Profile */}
             <div className="relative pl-2 border-l border-slate-800" ref={userMenuRef}>
               <button
@@ -281,6 +291,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Mobile Menu Toggle */}
           <div className="flex lg:hidden items-center space-x-2">
             <button
+              onClick={onOpenSettings}
+              className="p-2 text-slate-300 hover:text-white bg-slate-800 rounded-lg text-xs cursor-pointer"
+              title="Settings"
+            >
+              <Settings className="w-4 h-4 text-emerald-400" />
+            </button>
+            <button
               onClick={() => onOpenUpload("file")}
               className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
               title="Upload Bill"
@@ -339,25 +356,34 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </nav>
 
-          {/* Quick Management Shortcuts for Super Admin */}
-          {currentUser?.role === "super_admin" && (
-            <div className="flex items-center space-x-1">
-              <button
-                onClick={onOpenOutletsModal}
-                className="flex items-center space-x-1.5 px-2.5 py-1 text-xs text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer"
-              >
-                <Store className="w-3.5 h-3.5" />
-                <span>Outlets</span>
-              </button>
-              <button
-                onClick={onOpenUsersModal}
-                className="flex items-center space-x-1.5 px-2.5 py-1 text-xs text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>Users</span>
-              </button>
-            </div>
-          )}
+          {/* Quick Management Shortcuts */}
+          <div className="flex items-center space-x-1">
+            {currentUser?.role === "super_admin" && (
+              <>
+                <button
+                  onClick={onOpenOutletsModal}
+                  className="flex items-center space-x-1.5 px-2.5 py-1 text-xs text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer"
+                >
+                  <Store className="w-3.5 h-3.5" />
+                  <span>Outlets</span>
+                </button>
+                <button
+                  onClick={onOpenUsersModal}
+                  className="flex items-center space-x-1.5 px-2.5 py-1 text-xs text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Users</span>
+                </button>
+              </>
+            )}
+            <button
+              onClick={onOpenSettings}
+              className="flex items-center space-x-1.5 px-2.5 py-1 text-xs text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>Settings</span>
+            </button>
+          </div>
         </div>
       </div>
 

@@ -1,0 +1,34 @@
+{
+  "myTin": "1133533GST501",
+  "defaultGstRate": 8,
+  "autoApproveHighConfidence": false,
+  "templateMapping": {
+    "supplier_name": "Supplier Name",
+    "supplier_tin": "Supplier Tin",
+    "invoice_number": "Invoice Number",
+    "invoice_date": "Invoice Date",
+    "taxable_value": "Subtotal (Excl. GST)",
+    "gst_amount": "GST Amount (8%)",
+    "invoice_total": "Invoice Total",
+    "quarter": "Quarter",
+    "notes": "Notes",
+    "outlet_name": "Outlet Name"
+  },
+  "googleSheets": {
+    "spreadsheetId": "",
+    "sheetName": "GST Purchases",
+    "connected": false,
+    "mapping": {
+      "supplier_name": "Supplier Name",
+      "supplier_tin": "Supplier Tin",
+      "invoice_number": "Invoice Number",
+      "invoice_date": "Invoice Date",
+      "taxable_value": "Subtotal (Excl. GST)",
+      "gst_amount": "GST Amount (8%)",
+      "invoice_total": "Invoice Total",
+      "quarter": "Quarter",
+      "notes": "Notes",
+      "outlet_name": "Outlet Name"
+    }
+  }
+}
