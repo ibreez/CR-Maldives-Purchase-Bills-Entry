@@ -240,3 +240,4 @@ export type { CurrencyCode, ExchangeRateRecord, FxConversionResult, FxGainLossRe
 export type { AuditEvent, AuditAction, AuditEntityType, PeriodLockRecord, ReversalResult } from './audit';
 export type { ValidationIssue, ValidationSeverity, ReconciliationSummary, ReconciliationReport } from './reconciliation';
 export type { MiraReturnType, SubmissionStatus, SubmissionPayload, SubmissionResponse, WebhookPayload, WebhookProcessResult } from './miraconnectGateway';
+export type { Role, Permission, ApprovalStatus, UserSession, ApprovalRequest } from './rbac';

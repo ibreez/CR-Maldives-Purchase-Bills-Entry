@@ -1,0 +1,239 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CLIENT_USER
+  STAFF_ACCOUNTANT
+  TAX_MANAGER
+  CLIENT_ADMIN
+  AUDITOR
+}
+
+enum ReturnType {
+  MIRA604
+  MIRA105
+  MIRA302
+}
+
+enum SubmissionStatus {
+  DRAFT
+  READY_FOR_FILING
+  SUBMITTED
+  PROCESSING
+  ACCEPTED
+  REJECTED
+}
+
+enum ApprovalStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model Tenant {
+  id        String   @id
+  name      String
+  tin       String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+
+  @@index([tin])
+}
+
+model User {
+  id               String   @id
+  email            String   @unique
+  name             String
+  role             Role
+  tenantId         String
+  assignedEntities String[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([role])
+}
+
+model Transaction {
+  transactionId         String   @id
+  entityId              String
+  outletId              String
+  sourceType            String
+  sourceId              String
+  transactionDate       String
+  supplierOrCustomer    String?
+  description           String
+  amount                Float
+  gstAmount             Float
+  totalAmount           Float
+  accountingCategory    String
+  miraCategory          String
+  accountingTreatment   String
+  incomeTaxTreatment    String
+  gstTreatment          String
+  taxYear               Int
+  accountingPeriodStart String
+  accountingPeriodEnd   String
+  reviewStatus          String
+  createdAt             DateTime @default(now())
+
+  journalEntry JournalEntry?
+
+  @@index([entityId])
+  @@index([transactionDate])
+  @@index([taxYear])
+  @@index([entityId, transactionDate])
+  @@index([entityId, taxYear])
+}
+
+model JournalEntry {
+  journalId     String   @id
+  transactionId String   @unique
+  entryDate     String
+  entityId      String
+  outletId      String
+  totalDebit    Float
+  totalCredit   Float
+  isBalanced    Boolean
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  transaction Transaction   @relation(fields: [transactionId], references: [transactionId], onDelete: Cascade)
+  lines       JournalLine[]
+
+  @@index([entityId])
+  @@index([transactionId])
+  @@index([entryDate])
+}
+
+model JournalLine {
+  lineId      String  @id
+  journalId   String
+  accountCode String
+  accountName String
+  debit       Float
+  credit      Float
+  description String?
+
+  journalEntry JournalEntry @relation(fields: [journalId], references: [journalId], onDelete: Cascade)
+
+  @@index([journalId])
+  @@index([accountCode])
+}
+
+model FixedAsset {
+  assetId                    String   @id
+  entityId                   String
+  outletId                   String
+  transactionId              String?
+  documentId                 String?
+  assetName                  String
+  assetClass                 String
+  acquisitionDate            String
+  costPrice                  Float
+  salvageValue               Float?
+  miraCapitalAllowanceRate   Float
+  openingWDV                 Float
+  additionsInYear            Float
+  disposalsInYear            Float
+  capitalAllowanceClaimed    Float
+  closingWDV                 Float
+  taxYear                    Int
+  accountingPeriodStart      String
+  accountingPeriodEnd        String
+  notes                      String?
+  isDisposed                 Boolean?
+  disposalDate               String?
+  disposalValue              Float?
+  balancingAllowanceOrCharge Float?
+  createdAt                  DateTime @default(now())
+
+  @@index([entityId])
+  @@index([taxYear])
+  @@index([entityId, taxYear])
+  @@index([assetClass])
+}
+
+model TaxAdjustment {
+  adjustmentId   String   @id
+  entityId       String
+  taxYear        Int
+  adjustmentCode String
+  direction      String
+  amount         Float
+  description    String
+  transactionId  String?
+  approvalStatus String
+  createdBy      String
+  createdAt      DateTime @default(now())
+
+  @@index([entityId])
+  @@index([taxYear])
+  @@index([transactionId])
+  @@index([entityId, taxYear])
+}
+
+model TaxReturn {
+  id                       String           @id
+  entityId                 String
+  formId                   String
+  returnType               ReturnType
+  taxYear                  Int
+  formVersion              String
+  submissionStatus         SubmissionStatus
+  miraReferenceNumber      String?
+  acknowledgmentReceiptUrl String?
+  verificationChecksum     String
+  payloadJson              String
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+
+  @@index([entityId])
+  @@index([returnType])
+  @@index([taxYear])
+  @@index([entityId, taxYear])
+}
+
+model AuditEvent {
+  eventId       String   @id
+  entityId      String
+  timestamp     String
+  action        String
+  entityType    String
+  recordId      String
+  performedBy   String
+  details       String?
+  previousState String?
+  createdAt     DateTime @default(now())
+
+  @@index([entityId])
+  @@index([timestamp])
+  @@index([entityType, recordId])
+}
+
+model PeriodLock {
+  lockId      String   @id
+  entityId    String
+  taxYear     Int
+  periodStart String
+  periodEnd   String
+  isLocked    Boolean
+  lockedBy    String?
+  lockedAt    String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityId])
+  @@index([taxYear])
+  @@index([entityId, taxYear])
+}
