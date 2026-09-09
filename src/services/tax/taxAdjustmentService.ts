@@ -36,6 +36,8 @@ export interface TaxCalculationPipelineResult {
 
   // Step 3: Tax-exempt income / Allowable deductions
   totalAllowableDeductions: number;
+  totalDeductions?: number;
+  netTaxAdjustment?: number;
   
   // Adjusted Profit before Capital Allowance
   adjustedProfitBeforeCapitalAllowance: number;
@@ -166,6 +168,8 @@ export function calculateTaxableIncomePipeline(
   const isTaxLoss = rawTaxableIncome < 0;
   const taxableIncomeBeforeLossRelief = Math.max(0, rawTaxableIncome);
   const taxLossAmount = isTaxLoss ? Math.abs(rawTaxableIncome) : 0;
+  const totalDeductions = Math.round((totalAllowableDeductions + netCapitalAllowanceDeduction) * 100) / 100;
+  const netTaxAdjustment = Math.round((totalAddBacks - totalDeductions) * 100) / 100;
 
   return {
     taxYear: options?.taxYear || new Date().getFullYear(),
@@ -174,6 +178,8 @@ export function calculateTaxableIncomePipeline(
     totalAddBacks: Math.round(totalAddBacks * 100) / 100,
     addBacksBreakdown,
     totalAllowableDeductions: Math.round(totalAllowableDeductions * 100) / 100,
+    totalDeductions,
+    netTaxAdjustment,
     adjustedProfitBeforeCapitalAllowance: Math.round(adjustedProfitBeforeCapitalAllowance * 100) / 100,
     capitalAllowanceTotal: Math.round(capitalAllowanceTotal * 100) / 100,
     balancingAllowanceTotal: Math.round(balancingAllowance * 100) / 100,
@@ -184,5 +190,41 @@ export function calculateTaxableIncomePipeline(
     taxLossAmount: Math.round(taxLossAmount * 100) / 100,
     adjustmentsProcessed: processedList,
     generatedAt: new Date().toISOString()
+  };
+}
+
+/**
+ * Adapter helper to convert legacy TaxAdjustment to authoritative TaxAdjustmentEntry
+ */
+export function toAuthoritativeTaxAdjustment(adj: TaxAdjustment): import('../../types/taxAdjustment').TaxAdjustmentEntry {
+  const categoryMap: Record<string, import('../../types/taxAdjustment').TaxAdjustmentCategory> = {
+    'ADJ-DEPR': 'DEPRECIATION_ADDBACK',
+    'ADJ-FINES': 'FINES_PENALTIES',
+    'ADJ-DONATION': 'APPROVED_DONATIONS',
+    'ADJ-PRIVATE': 'PRIVATE_EXPENDITURE',
+    'ADJ-CAPITAL': 'CAPITAL_EXPENDITURE',
+    'ADJ-OWNER': 'OWNER_DRAWINGS',
+    'ADJ-RELATED': 'RELATED_PARTY_EXCESS',
+    'ADJ-OTHER': 'NON_DEDUCTIBLE_EXPENDITURE'
+  };
+
+  return {
+    id: adj.adjustmentId,
+    tenantId: adj.entityId || 'COMPANY-001',
+    taxYear: adj.taxYear || new Date().getFullYear(),
+    sourceTransactionId: adj.sourceTransactionId,
+    supportingDocument: adj.supportingDocumentId,
+    accountCode: 'ACC-TAX-ADJ',
+    accountName: adj.adjustmentName || adj.reason,
+    adjustmentCode: adj.miraCode,
+    category: categoryMap[adj.miraCode] || 'NON_DEDUCTIBLE_EXPENDITURE',
+    description: adj.reason,
+    amount: adj.amount,
+    direction: adj.direction === 'DEDUCTION' ? 'DEDUCTION' : 'ADD_BACK',
+    ruleId: `RULE-${adj.miraCode}`,
+    ruleVersion: 'v25.1',
+    reviewStatus: adj.reviewStatus,
+    createdAt: adj.createdAt || new Date().toISOString(),
+    updatedAt: adj.createdAt || new Date().toISOString()
   };
 }

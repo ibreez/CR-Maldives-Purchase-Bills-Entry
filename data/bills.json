@@ -1,0 +1,578 @@
+[
+  {
+    "id": "bill-1787227524451-e9czx",
+    "outlet_id": "outlet-1",
+    "outlet_name": "COFFEE RESIDENCE - MALE",
+    "uploaded_by": {
+      "userId": "user-ibreez",
+      "userName": "Ibreez Super Admin",
+      "userEmail": "ibreez@crmaldives.com"
+    },
+    "fileName": "WhatsApp Image 2026-06-24 at 15.47.46.jpeg",
+    "fileType": "image/jpeg",
+    "fileSize": 247470,
+    "fileUrl": "/uploads/bill-1787227445358-725305865.jpeg",
+    "uploadDate": "2026-08-20T12:05:24.451Z",
+    "status": "verified",
+    "ocr_status": "APPROVED",
+    "ocr_attempts": 2,
+    "needs_review": false,
+    "review_reason": null,
+    "extractedData": {
+      "document_type": "TAX_INVOICE",
+      "tax_status": "TAX_CHARGED",
+      "expense_category": "Other Expenses",
+      "mira_schedule1_category": "Other Expenses",
+      "accounting_treatment": "OPERATING_EXPENSE",
+      "income_tax_treatment": "DEDUCTIBLE_EXPENSE",
+      "deductible_percentage": 100,
+      "supplier": {
+        "name": "LION LOGISTICS PVT LTD",
+        "gstin": "1011757GST501",
+        "address": "M. Kurahaage 7th Floor 7B, LainoofaruMagu",
+        "phone": "+9603333630"
+      },
+      "invoice": {
+        "number": "L26/1178",
+        "date": "24 JUN 2026",
+        "po_number": null,
+        "currency": "MVR",
+        "gst_type": "MIRA 8%"
+      },
+      "items": [
+        {
+          "id": "item-1",
+          "description": "Form Filling",
+          "quantity": 5,
+          "unit": null,
+          "rate": 30,
+          "discount": null,
+          "taxable_value": 150,
+          "gst_rate": 8,
+          "gst_amount": 12,
+          "total": 150
+        },
+        {
+          "id": "item-2",
+          "description": "Processing Charges",
+          "quantity": 1,
+          "unit": null,
+          "rate": 150,
+          "discount": null,
+          "taxable_value": 150,
+          "gst_rate": 8,
+          "gst_amount": 12,
+          "total": 150
+        },
+        {
+          "id": "item-3",
+          "description": "Clearance KG",
+          "quantity": 1,
+          "unit": null,
+          "rate": 450,
+          "discount": null,
+          "taxable_value": 450,
+          "gst_rate": 8,
+          "gst_amount": 36,
+          "total": 450
+        },
+        {
+          "id": "item-4",
+          "description": "Delivery Order Fee",
+          "quantity": 1,
+          "unit": null,
+          "rate": 167.4,
+          "discount": null,
+          "taxable_value": 167.4,
+          "gst_rate": 0,
+          "gst_amount": 0,
+          "total": 167.4
+        },
+        {
+          "id": "item-5",
+          "description": "Customs Duty",
+          "quantity": 1,
+          "unit": null,
+          "rate": 176.31,
+          "discount": null,
+          "taxable_value": 176.31,
+          "gst_rate": 0,
+          "gst_amount": 0,
+          "total": 176.31
+        }
+      ],
+      "totals": {
+        "taxable_value": 1093.71,
+        "gst_amount": 60,
+        "round_off": 0,
+        "invoice_total": 1153.71
+      },
+      "notes": null
+    },
+    "verifiedData": {
+      "document_type": "TAX_INVOICE",
+      "tax_status": "TAX_CHARGED",
+      "expense_category": "Other Expenses",
+      "mira_schedule1_category": "Other Expenses",
+      "accounting_treatment": "OPERATING_EXPENSE",
+      "income_tax_treatment": "DEDUCTIBLE_EXPENSE",
+      "deductible_percentage": 100,
+      "supplier": {
+        "name": "LION LOGISTICS PVT LTD",
+        "gstin": "1011757GST501",
+        "address": "M. Kurahaage 7th Floor 7B, LainoofaruMagu",
+        "phone": "+9603333630"
+      },
+      "invoice": {
+        "number": "L26/1178",
+        "date": "24 JUN 2026",
+        "po_number": null,
+        "currency": "MVR",
+        "gst_type": "MIRA 8%"
+      },
+      "items": [
+        {
+          "id": "item-1",
+          "description": "Form Filling",
+          "quantity": 5,
+          "unit": null,
+          "rate": 30,
+          "discount": null,
+          "taxable_value": 150,
+          "gst_rate": 8,
+          "gst_amount": 12,
+          "total": 150
+        },
+        {
+          "id": "item-2",
+          "description": "Processing Charges",
+          "quantity": 1,
+          "unit": null,
+          "rate": 150,
+          "discount": null,
+          "taxable_value": 150,
+          "gst_rate": 8,
+          "gst_amount": 12,
+          "total": 150
+        },
+        {
+          "id": "item-3",
+          "description": "Clearance KG",
+          "quantity": 1,
+          "unit": null,
+          "rate": 450,
+          "discount": null,
+          "taxable_value": 450,
+          "gst_rate": 8,
+          "gst_amount": 36,
+          "total": 450
+        },
+        {
+          "id": "item-4",
+          "description": "Delivery Order Fee",
+          "quantity": 1,
+          "unit": null,
+          "rate": 167.4,
+          "discount": null,
+          "taxable_value": 167.4,
+          "gst_rate": 0,
+          "gst_amount": 0,
+          "total": 167.4
+        },
+        {
+          "id": "item-5",
+          "description": "Customs Duty",
+          "quantity": 1,
+          "unit": null,
+          "rate": 176.31,
+          "discount": null,
+          "taxable_value": 176.31,
+          "gst_rate": 0,
+          "gst_amount": 0,
+          "total": 176.31
+        }
+      ],
+      "totals": {
+        "taxable_value": 1093.71,
+        "gst_amount": 60,
+        "round_off": 0,
+        "invoice_total": 1153.71
+      },
+      "notes": null
+    },
+    "confidence": {
+      "supplier_name": 0.98,
+      "supplier_tin": 0.98,
+      "invoice_number": 0.98,
+      "invoice_date": 0.98,
+      "taxable_value": 0.98,
+      "gst_amount": 0.98,
+      "invoice_total": 0.98,
+      "line_items": 0.98,
+      "overall": 0.98
+    },
+    "validation": {
+      "is_valid": true,
+      "issues": [],
+      "duplicate_found": false,
+      "duplicate_bill_id": null,
+      "duplicate_reason": null
+    },
+    "quarter": "2026-Q2",
+    "year": 2026,
+    "updatedAt": "2026-08-20T12:12:35.567Z",
+    "audit_trail": [
+      {
+        "date": "2026-08-20T12:05:24.451Z",
+        "action": "Bill Uploaded & Analyzed",
+        "performedBy": "Ibreez Super Admin",
+        "details": "Doc Type: TAX_INVOICE, Tax Status: TAX_CHARGED, OCR Status: VALIDATED, Attempts: 2"
+      },
+      {
+        "date": "2026-08-20T12:12:35.567Z",
+        "action": "Bill Approved & Verified",
+        "performedBy": "Ibreez Super Admin",
+        "details": "Updated status to verified. Doc type: TAX_INVOICE"
+      }
+    ]
+  },
+  {
+    "id": "bill-1787234180290-oeigh",
+    "outlet_id": "outlet-1",
+    "outlet_name": "COFFEE RESIDENCE - MALE",
+    "uploaded_by": {
+      "userId": "user-ibreez",
+      "userName": "Ibreez Super Admin",
+      "userEmail": "ibreez@crmaldives.com"
+    },
+    "fileName": "Scan2026-08-14_211744.pdf",
+    "fileType": "application/pdf",
+    "fileSize": 57226,
+    "fileUrl": "/uploads/bill-1787234137359-385335653.pdf",
+    "uploadDate": "2026-08-20T13:56:20.290Z",
+    "status": "verified",
+    "ocr_status": "APPROVED",
+    "ocr_attempts": 2,
+    "needs_review": false,
+    "review_reason": null,
+    "extractedData": {
+      "document_type": "OTHER",
+      "tax_status": "TAX_CHARGED",
+      "expense_category": "Repairs & Maintenance",
+      "mira_schedule1_category": "Repairs & Maintenance",
+      "accounting_treatment": "OPERATING_EXPENSE",
+      "income_tax_treatment": "DEDUCTIBLE_EXPENSE",
+      "deductible_percentage": 100,
+      "supplier": {
+        "name": "Light Studio (Cr Maldives Pvt Ltd )",
+        "gstin": "1133533GST501",
+        "address": "G.Handhuvaree Asseyri, Lonziyaarai Magu, Male, Maldives",
+        "phone": null
+      },
+      "invoice": {
+        "number": "PO202608-05528",
+        "date": "10 AUG 2026",
+        "po_number": "PO202608-05528",
+        "currency": "MVR",
+        "gst_type": "GST 8%"
+      },
+      "items": [
+        {
+          "id": "item-1",
+          "description": "Down Light 18W AC180 265V - 50 To 60HZ 3000K (Ceilin",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 136.57,
+          "discount": null,
+          "taxable_value": 6828.5,
+          "gst_rate": 8,
+          "gst_amount": 546.28,
+          "total": 7374.78
+        },
+        {
+          "id": "item-2",
+          "description": "Down Light 18W AC180 265V - 50 To 60HZ 3000K (Insert",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 134.26,
+          "discount": null,
+          "taxable_value": 6713,
+          "gst_rate": 8,
+          "gst_amount": 537.04,
+          "total": 7250.04
+        },
+        {
+          "id": "item-3",
+          "description": "Down Light 12W AC180 265V - 50 To 60HZ 6000K (Insert",
+          "quantity": 20,
+          "unit": "Each",
+          "rate": 111.11,
+          "discount": null,
+          "taxable_value": 2222.2,
+          "gst_rate": 8,
+          "gst_amount": 177.78,
+          "total": 2399.98
+        },
+        {
+          "id": "item-4",
+          "description": "Down Light 12W AC180 265V - 50 To 60HZ 3000K (Ceilin",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 111.11,
+          "discount": null,
+          "taxable_value": 5555.5,
+          "gst_rate": 8,
+          "gst_amount": 444.44,
+          "total": 5999.94
+        },
+        {
+          "id": "item-5",
+          "description": "Down Light 12W AC180 265V - 50 To 60HZ 6000K (Insert",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 111.11,
+          "discount": null,
+          "taxable_value": 5555.5,
+          "gst_rate": 8,
+          "gst_amount": 444.44,
+          "total": 5999.94
+        },
+        {
+          "id": "item-6",
+          "description": "Down Light 12W AC180 265V - 50 To 60HZ 3000K (Insert",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 111.11,
+          "discount": null,
+          "taxable_value": 5555.5,
+          "gst_rate": 8,
+          "gst_amount": 444.44,
+          "total": 5999.94
+        },
+        {
+          "id": "item-7",
+          "description": "Led Bulb E27 -12W AC180 265V - 50 To 60HZ 6000K",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 41.67,
+          "discount": null,
+          "taxable_value": 2083.5,
+          "gst_rate": 8,
+          "gst_amount": 166.68,
+          "total": 2250.18
+        },
+        {
+          "id": "item-8",
+          "description": "Led Bulb E27 -12W AC180 265V - 50 To 60HZ 3000K",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 41.67,
+          "discount": null,
+          "taxable_value": 2083.5,
+          "gst_rate": 8,
+          "gst_amount": 166.68,
+          "total": 2250.18
+        },
+        {
+          "id": "item-9",
+          "description": "Garden Light 7W AC180 265V - 50 To 60HZ 3000K (PVC",
+          "quantity": 20,
+          "unit": "Each",
+          "rate": 138.89,
+          "discount": null,
+          "taxable_value": 2777.8,
+          "gst_rate": 8,
+          "gst_amount": 222.22,
+          "total": 3000.02
+        }
+      ],
+      "totals": {
+        "taxable_value": 39375,
+        "gst_amount": 3150,
+        "round_off": 0,
+        "invoice_total": 42525
+      },
+      "notes": null
+    },
+    "verifiedData": {
+      "document_type": "OTHER",
+      "tax_status": "TAX_CHARGED",
+      "expense_category": "Repairs & Maintenance",
+      "mira_schedule1_category": "Repairs & Maintenance",
+      "accounting_treatment": "OPERATING_EXPENSE",
+      "income_tax_treatment": "DEDUCTIBLE_EXPENSE",
+      "deductible_percentage": 100,
+      "supplier": {
+        "name": "Light Studio (Cr Maldives Pvt Ltd )",
+        "gstin": "1133533GST501",
+        "address": "G.Handhuvaree Asseyri, Lonziyaarai Magu, Male, Maldives",
+        "phone": null
+      },
+      "invoice": {
+        "number": "PO202608-05528",
+        "date": "10 AUG 2026",
+        "po_number": "PO202608-05528",
+        "currency": "MVR",
+        "gst_type": "GST 8%"
+      },
+      "items": [
+        {
+          "id": "item-1",
+          "description": "Down Light 18W AC180 265V - 50 To 60HZ 3000K (Ceilin",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 136.57,
+          "discount": null,
+          "taxable_value": 6828.5,
+          "gst_rate": 8,
+          "gst_amount": 546.28,
+          "total": 7374.78
+        },
+        {
+          "id": "item-2",
+          "description": "Down Light 18W AC180 265V - 50 To 60HZ 3000K (Insert",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 134.26,
+          "discount": null,
+          "taxable_value": 6713,
+          "gst_rate": 8,
+          "gst_amount": 537.04,
+          "total": 7250.04
+        },
+        {
+          "id": "item-3",
+          "description": "Down Light 12W AC180 265V - 50 To 60HZ 6000K (Insert",
+          "quantity": 20,
+          "unit": "Each",
+          "rate": 111.11,
+          "discount": null,
+          "taxable_value": 2222.2,
+          "gst_rate": 8,
+          "gst_amount": 177.78,
+          "total": 2399.98
+        },
+        {
+          "id": "item-4",
+          "description": "Down Light 12W AC180 265V - 50 To 60HZ 3000K (Ceilin",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 111.11,
+          "discount": null,
+          "taxable_value": 5555.5,
+          "gst_rate": 8,
+          "gst_amount": 444.44,
+          "total": 5999.94
+        },
+        {
+          "id": "item-5",
+          "description": "Down Light 12W AC180 265V - 50 To 60HZ 6000K (Insert",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 111.11,
+          "discount": null,
+          "taxable_value": 5555.5,
+          "gst_rate": 8,
+          "gst_amount": 444.44,
+          "total": 5999.94
+        },
+        {
+          "id": "item-6",
+          "description": "Down Light 12W AC180 265V - 50 To 60HZ 3000K (Insert",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 111.11,
+          "discount": null,
+          "taxable_value": 5555.5,
+          "gst_rate": 8,
+          "gst_amount": 444.44,
+          "total": 5999.94
+        },
+        {
+          "id": "item-7",
+          "description": "Led Bulb E27 -12W AC180 265V - 50 To 60HZ 6000K",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 41.67,
+          "discount": null,
+          "taxable_value": 2083.5,
+          "gst_rate": 8,
+          "gst_amount": 166.68,
+          "total": 2250.18
+        },
+        {
+          "id": "item-8",
+          "description": "Led Bulb E27 -12W AC180 265V - 50 To 60HZ 3000K",
+          "quantity": 50,
+          "unit": "Each",
+          "rate": 41.67,
+          "discount": null,
+          "taxable_value": 2083.5,
+          "gst_rate": 8,
+          "gst_amount": 166.68,
+          "total": 2250.18
+        },
+        {
+          "id": "item-9",
+          "description": "Garden Light 7W AC180 265V - 50 To 60HZ 3000K (PVC",
+          "quantity": 20,
+          "unit": "Each",
+          "rate": 138.89,
+          "discount": null,
+          "taxable_value": 2777.8,
+          "gst_rate": 8,
+          "gst_amount": 222.22,
+          "total": 3000.02
+        }
+      ],
+      "totals": {
+        "taxable_value": 39375,
+        "gst_amount": 3150,
+        "round_off": 0,
+        "invoice_total": 42525
+      },
+      "notes": null
+    },
+    "confidence": {
+      "supplier_name": 0.99,
+      "supplier_tin": 0.99,
+      "invoice_number": 0.99,
+      "invoice_date": 0.99,
+      "taxable_value": 0.99,
+      "gst_amount": 0.99,
+      "invoice_total": 0.99,
+      "line_items": 0.99,
+      "overall": 0.98
+    },
+    "validation": {
+      "is_valid": false,
+      "issues": [
+        {
+          "type": "error",
+          "field": "supplier_tin",
+          "message": "Extracted TIN (1133533GST501) is OUR TIN, not the Supplier's TIN."
+        }
+      ],
+      "duplicate_found": false,
+      "duplicate_bill_id": null,
+      "duplicate_reason": null
+    },
+    "quarter": "2026-Q3",
+    "year": 2026,
+    "updatedAt": "2026-08-20T13:58:49.848Z",
+    "audit_trail": [
+      {
+        "date": "2026-08-20T13:56:20.290Z",
+        "action": "Bill Uploaded & Analyzed",
+        "performedBy": "Ibreez Super Admin",
+        "details": "Doc Type: OTHER, Tax Status: TAX_CHARGED, OCR Status: NEEDS_REVIEW, Attempts: 2"
+      },
+      {
+        "date": "2026-08-20T13:58:49.848Z",
+        "action": "Bill Approved & Verified",
+        "performedBy": "Ibreez Super Admin",
+        "details": "Updated status to verified. Doc type: OTHER"
+      }
+    ]
+  }
+]

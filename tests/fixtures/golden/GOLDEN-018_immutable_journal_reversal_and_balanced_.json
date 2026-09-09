@@ -1,0 +1,54 @@
+{
+  "caseId": "GOLDEN-018",
+  "caseNumber": 18,
+  "title": "Immutable Journal Reversal and Balanced Contra Entries",
+  "description": "Reverses an incorrect MVR 12,000 posting via a balanced contra entry, preserving the original journal and SHA-256 audit hash chain.",
+  "category": "ACCOUNTING_AUDIT",
+  "regulatoryReferences": [
+    "Tax Administration Regulation Section 19 (Record Keeping & Audit Trail)",
+    "Double-Entry Accounting Contra-Entry Invariants"
+  ],
+  "effectiveDate": "2026-04-15",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-018",
+      "tin": "1000018GST001",
+      "taxpayerName": "Sunland Marine Logistics Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "parameters": {
+      "originalJournalId": "JRN-2026-0044",
+      "originalAmount": 12000,
+      "reversalReason": "Duplicate invoice entry correction"
+    },
+    "sessionUser": {
+      "userId": "USER-SENIOR-ACCOUNTANT",
+      "role": "ACCOUNTANT",
+      "name": "Hassan Rasheed"
+    }
+  },
+  "expectedClassifications": {
+    "accountingClassification": "EXPENSE"
+  },
+  "expectedCalculations": {
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_205",
+    "boxValues": {
+      "reversal_status": "REVERSED",
+      "net_period_impact": 0
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "ca869468adf95f1bf50be389821075fb08fc2d36f2a30cd6eeaf11366ec0da4a"
+}

@@ -1,0 +1,90 @@
+{
+  "caseId": "GOLDEN-013",
+  "caseNumber": 13,
+  "title": "Individual Income Tax 5-Bracket Progressive Calculation",
+  "description": "Individual business taxable income of MVR 3,000,000 calculated across all 5 statutory brackets yielding exact MVR 236,400 liability.",
+  "category": "INCOME_TAX",
+  "regulatoryReferences": [
+    "Income Tax Act (Law No. 25/2019) Section 12 & 14 (Individual Income Tax Brackets)",
+    "MIRA Individual Tax Return Guidelines"
+  ],
+  "effectiveDate": "2026-12-31",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-013",
+      "tin": "1000013GST001",
+      "taxpayerName": "Ahmed Ali (Sole Proprietorship)",
+      "businessType": "INDIVIDUAL",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "parameters": {
+      "netTaxableIncome": 3000000
+    }
+  },
+  "expectedClassifications": {
+    "accountingClassification": "REVENUE"
+  },
+  "expectedCalculations": {
+    "netTaxableIncome": 3000000,
+    "taxLiability": 236400,
+    "individualBracketBreakdown": [
+      {
+        "bracketIndex": 1,
+        "bracketName": "0 to 720k",
+        "rate": 0,
+        "taxableInBracket": 720000,
+        "taxForBracket": 0
+      },
+      {
+        "bracketIndex": 2,
+        "bracketName": "720k to 1.2M",
+        "rate": 0.055,
+        "taxableInBracket": 480000,
+        "taxForBracket": 26400
+      },
+      {
+        "bracketIndex": 3,
+        "bracketName": "1.2M to 1.8M",
+        "rate": 0.08,
+        "taxableInBracket": 600000,
+        "taxForBracket": 48000
+      },
+      {
+        "bracketIndex": 4,
+        "bracketName": "1.8M to 2.4M",
+        "rate": 0.12,
+        "taxableInBracket": 600000,
+        "taxForBracket": 72000
+      },
+      {
+        "bracketIndex": 5,
+        "bracketName": "Above 2.4M",
+        "rate": 0.15,
+        "taxableInBracket": 600000,
+        "taxForBracket": 90000
+      }
+    ]
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_604",
+    "boxValues": {
+      "individual_taxable_income": 3000000,
+      "individual_bracket1_tax": 0,
+      "individual_bracket2_tax": 26400,
+      "individual_bracket3_tax": 48000,
+      "individual_bracket4_tax": 72000,
+      "individual_bracket5_tax": 90000,
+      "individual_total_tax": 236400
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "dbb79329c2c5a7b2a6bb1df63478f17ff720b11805d6cb5f66fc424e3c5f8f5b"
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "id": "outlet-1",
+    "name": "Male' Main Branch",
+    "code": "MLE-01",
+    "tin": "1000001GST501",
+    "address": "Boduthakurufaanu Magu, Male', Maldives",
+    "phone": "+960 334 4300",
+    "status": "active",
+    "createdAt": "2026-08-22T12:38:50.380Z"
+  },
+  {
+    "id": "outlet-2",
+    "name": "Hulhumale' Outlet",
+    "code": "HLM-02",
+    "tin": "1000002GST502",
+    "address": "Nirolhu Magu, Hulhumale', Maldives",
+    "phone": "+960 335 1122",
+    "status": "active",
+    "createdAt": "2026-08-22T12:38:50.380Z"
+  },
+  {
+    "id": "outlet-3",
+    "name": "Maafushi Resort Shop",
+    "code": "MFS-03",
+    "tin": "1000003GST503",
+    "address": "Kani Magu, Maafushi, Maldives",
+    "phone": "+960 778 9988",
+    "status": "active",
+    "createdAt": "2026-08-22T12:38:50.380Z"
+  }
+]

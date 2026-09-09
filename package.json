@@ -10,12 +10,27 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate": "npx prisma migrate deploy",
+    "db:status": "npx prisma migrate status",
+    "db:backup": "bash scripts/backup_database.sh",
+    "dr:backup": "bash scripts/disaster_recovery.sh backup",
+    "dr:restore": "bash scripts/disaster_recovery.sh restore",
+    "dr:verify": "bash scripts/disaster_recovery.sh verify",
+    "benchmark": "tsx scripts/run_performance_benchmark.ts",
+    "benchmark:quick": "tsx scripts/run_performance_benchmark.ts --quick",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "schema": "src/db/schema.prisma"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@prisma/client": "5.22.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
+    "cookie-parser": "^1.4.7",
+    "decimal.js": "^10.6.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
@@ -27,11 +42,13 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^4.17.21",
     "@types/multer": "^2.2.0",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
+    "prisma": "5.22.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",

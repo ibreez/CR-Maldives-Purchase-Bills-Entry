@@ -1,0 +1,64 @@
+{
+  "caseId": "GOLDEN-003",
+  "caseNumber": 3,
+  "title": "Tourism GST 16% Regime (Historical Pre-July 2025)",
+  "description": "Tourism sector transaction rendered during the 16% TGST era (between 2023-01-01 and 2025-06-30).",
+  "category": "GST",
+  "regulatoryReferences": [
+    "GST Act (Law No. 10/2011) Section 15(b) amended by Act No. 20/2022",
+    "MIRA 206 Tourism GST Return Schema"
+  ],
+  "effectiveDate": "2024-11-20",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-003",
+      "tin": "1000003GST001",
+      "taxpayerName": "Velidhoo Ocean Resort Maldives",
+      "businessType": "COMPANY",
+      "sector": "TOURISM",
+      "isGstRegistered": true,
+      "taxYear": 2024
+    },
+    "document": {
+      "fileName": "resort_guest_folio_2024.pdf",
+      "documentType": "SUPPLIER_INVOICE",
+      "supplierName": "Velidhoo Ocean Resort",
+      "supplierTin": "1000003GST001",
+      "invoiceNumber": "FOLIO-2024-9901",
+      "issueDate": "2024-11-20",
+      "currency": "MVR",
+      "subtotal": 50000,
+      "gstAmount": 8000,
+      "totalAmount": 58000
+    }
+  },
+  "expectedClassifications": {
+    "documentType": "SUPPLIER_INVOICE",
+    "accountingClassification": "REVENUE",
+    "gstTreatment": "STANDARD_RATED",
+    "taxRate": 0.16
+  },
+  "expectedCalculations": {
+    "taxableAmount": 50000,
+    "gstAmount": 8000,
+    "totalAmount": 58000,
+    "outputGst": 8000,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_206",
+    "boxValues": {
+      "box10_tgst_taxable_supplies": 50000,
+      "box11_tgst_rate": 0.16,
+      "box12_tgst_output_tax": 8000
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "fd9782be6101c459893541ea466a1b1c3aac1b8b91126f5bd99ccfb821558f46"
+}

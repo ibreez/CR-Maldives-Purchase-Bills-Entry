@@ -52,13 +52,22 @@ export interface Mira302WhtReturn {
   submissionStatus: 'DRAFT' | 'READY_FOR_FILING' | 'SUBMITTED';
   generatedAt: string;
   whtPeriod: WhtPeriod;
+  period?: WhtPeriod;
 
   // Itemized schedule of payments made to non-residents
   scheduleOfPayments: WhtScheduleItem[];
+  payeeSchedule?: Array<{
+    payeeName: string;
+    grossAmount: number;
+    whtRate: number;
+    taxWithheld: number;
+    netPaid: number;
+  }>;
 
   // Aggregates
   totalGrossPayments: number;
   totalWhtWithheld: number;
+  totalTaxWithheld?: number;
   totalNetPayments: number;
   itemCount: number;
 

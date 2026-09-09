@@ -90,6 +90,7 @@ export function generateMira604Return(params: Mira604InputData): Mira604TaxRetur
   const capitalAllowanceTotal = Math.max(0, params.capitalAllowanceTotal || 0);
   const sectionD: Schedule2CapitalAllowanceSummary = {
     totalClaimableCapitalAllowance: Math.round(capitalAllowanceTotal * 100) / 100,
+    totalCapitalAllowanceClaimed: Math.round(capitalAllowanceTotal * 100) / 100,
     assetClassBreakdown: params.capitalAllowanceBreakdown || []
   };
 
@@ -123,7 +124,9 @@ export function generateMira604Return(params: Mira604InputData): Mira604TaxRetur
 
   const sectionE: TaxableIncomeAndLossReliefSummary = {
     adjustedTaxableProfitBeforeLoss: Math.round(adjustedTaxableProfitBeforeLoss * 100) / 100,
+    taxableIncomeBeforeLoss: Math.round(adjustedTaxableProfitBeforeLoss * 100) / 100,
     priorUnabsorbedLosses: entityTaxCalc.priorUnabsorbedLosses,
+    priorUnabsorbedLossClaimed: entityTaxCalc.lossReliefApplied,
     lossCarriedForwardApplied: entityTaxCalc.lossReliefApplied,
     remainingUnabsorbedLoss: entityTaxCalc.remainingUnabsorbedLoss,
     netTaxableIncome: entityTaxCalc.netTaxableIncome,
@@ -168,6 +171,12 @@ export function generateMira604Return(params: Mira604InputData): Mira604TaxRetur
     sectionD_CapitalAllowances: sectionD,
     sectionE_TaxableIncomeLoss: sectionE,
     sectionF_TaxComputation: sectionF,
+    taxpayer,
+    sectionB,
+    sectionC,
+    sectionD,
+    sectionE,
+    sectionF,
     verificationChecksum: checksum
   };
 }

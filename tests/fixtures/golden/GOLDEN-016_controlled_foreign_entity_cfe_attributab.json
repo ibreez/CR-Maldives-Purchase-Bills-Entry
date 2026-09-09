@@ -1,0 +1,53 @@
+{
+  "caseId": "GOLDEN-016",
+  "caseNumber": 16,
+  "title": "Controlled Foreign Entity (CFE) Attributable Income Inclusion",
+  "description": "Maldivian parent company with 60% ownership in offshore subsidiary with MVR 200,000 passive income; includes MVR 120,000 in domestic taxable base under Section 31 ITA.",
+  "category": "CFE",
+  "regulatoryReferences": [
+    "Income Tax Act (Law No. 25/2019) Section 31 (Controlled Foreign Entity Rules)",
+    "Income Tax Regulation Chapter 6"
+  ],
+  "effectiveDate": "2026-12-31",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-016",
+      "tin": "1000016GST001",
+      "taxpayerName": "Apex Capital Maldives Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "FINANCIAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "cfeData": {
+      "foreignEntityName": "Apex Offshore Investments Ltd",
+      "jurisdiction": "BVI",
+      "ownershipPercentage": 0.6,
+      "foreignPassiveIncome": 200000,
+      "foreignTaxPaid": 0
+    }
+  },
+  "expectedClassifications": {
+    "accountingClassification": "REVENUE",
+    "incomeTaxTreatment": "DEDUCTIBLE"
+  },
+  "expectedCalculations": {
+    "grossRevenue": 120000,
+    "adjustedTaxableProfit": 120000,
+    "netTaxableIncome": 120000
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_604",
+    "boxValues": {
+      "secB_foreign_cfe_income": 120000
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "6cbb5fc3e01b7a3316e925a663e604a7872edacff83932fc5266a507bd3cffa4"
+}

@@ -78,7 +78,7 @@ export function calculateCapitalAllowance(
   asset: FixedAssetRecord,
   taxYear: number
 ): CapitalAllowanceResult {
-  const cost = Number((asset as any).cost ?? asset.costPrice ?? 0);
+  const cost = Number((asset as any).originalCost ?? (asset as any).taxCostBase ?? (asset as any).cost ?? asset.costPrice ?? 0);
   const rate = asset.miraCapitalAllowanceRate || getMiraAssetClassRate(asset.assetClass);
 
   const acqDate = asset.acquisitionDate || `${asset.taxYear || taxYear}-01-01`;
@@ -242,13 +242,22 @@ export function calculateCapitalAllowance(
     };
   }
 
-  // Regular Non-Disposed Capital Allowance Calculation
-  const proRataFactor = daysInService / 365;
-  const calculatedAllowance = Math.round(fullYearAllowance * proRataFactor * 100) / 100;
+  // If asset record explicitly provides currentYearCapitalAllowance, use it
+  const assetAny = asset as any;
+  if (assetAny.currentYearCapitalAllowance !== undefined && assetAny.currentYearCapitalAllowance > 0) {
+    claimableAllowance = assetAny.currentYearCapitalAllowance;
+    closingWDV = assetAny.taxWrittenDownValue !== undefined 
+      ? assetAny.taxWrittenDownValue 
+      : Math.round(Math.max(0, (openingWDV + additions) - claimableAllowance) * 100) / 100;
+  } else {
+    // Regular Non-Disposed Capital Allowance Calculation
+    const proRataFactor = daysInService / 365;
+    const calculatedAllowance = Math.round(fullYearAllowance * proRataFactor * 100) / 100;
 
-  const maxClaimable = openingWDV + additions;
-  claimableAllowance = Math.min(calculatedAllowance, maxClaimable);
-  closingWDV = Math.round(Math.max(0, maxClaimable - claimableAllowance) * 100) / 100;
+    const maxClaimable = openingWDV + additions;
+    claimableAllowance = Math.min(calculatedAllowance, maxClaimable);
+    closingWDV = Math.round(Math.max(0, maxClaimable - claimableAllowance) * 100) / 100;
+  }
 
   return {
     assetId: asset.assetId,

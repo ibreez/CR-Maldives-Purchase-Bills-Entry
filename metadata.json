@@ -1,6 +1,6 @@
 {
   "name": "CR GST Purchase Bill Entry",
-  "description": "Maldivian GST purchase bill processing, verification, Excel export, and Google Sheets integration.",
+  "description": "Comprehensive Maldives Tax & Accounting Engine with GST (MIRA 205/206), NWT (MIRA 602), Income Tax (MIRA 604 v25.1), and Offline Statutory Filing Package Generator.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

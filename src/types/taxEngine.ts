@@ -233,6 +233,19 @@ export type { MiraAdjustmentCode, AdjustmentDirection, MiraAdjustmentCodeConfig 
 export type { TaxAdjustment, TaxCalculationPipelineResult, AdjustmentReviewStatus } from '../services/tax/taxAdjustmentService';
 export type { EntityType, TaxBracket } from '../config/miraTaxRates';
 export type { EntityTaxResult, EntityTaxCalculationOptions, TaxBracketDetail, PriorTaxLossRecord } from '../services/tax/entityTaxService';
+export type {
+  TaxpayerType,
+  TaxAdjustmentItem,
+  PriorTaxLoss,
+  TaxCreditItem,
+  PrepaymentItem,
+  WithholdingCreditItem,
+  IncomeTaxCalculationInput,
+  TaxableIncomeCalculation,
+  TaxBracketCalculation,
+  TaxLiability,
+  FinalTaxPayable
+} from './incomeTax';
 export type { Mira604TaxReturn, Mira604InputData, TaxpayerInfo, Schedule1PnLSummary, TaxAdjustmentsSummary, Schedule2CapitalAllowanceSummary, TaxableIncomeAndLossReliefSummary, TaxComputationSummary } from './mira604';
 export type { Mira105GstReturn, GstPeriod, GstRegime, InputGstEligibility, Mira105OutputSalesBox, Mira105InputPurchasesBox, Mira105CapitalPurchasesBox } from './mira105';
 export type { Mira302WhtReturn, WhtPeriod, NonResidentPaymentCategory, NonResidentPayee, WhtScheduleItem } from './mira302';

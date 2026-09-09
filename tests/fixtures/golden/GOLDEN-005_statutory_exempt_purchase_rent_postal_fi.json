@@ -1,0 +1,68 @@
+{
+  "caseId": "GOLDEN-005",
+  "caseNumber": 5,
+  "title": "Statutory Exempt Purchase (Rent/Postal/Financial)",
+  "description": "Exempt commercial rent invoice with 0.00 GST under GST Act Section 21, deductible for Income Tax but non-claimable for GST input tax.",
+  "category": "GST",
+  "regulatoryReferences": [
+    "GST Act (Law No. 10/2011) Section 21 (Exempt Goods and Services)",
+    "Income Tax Act (Law No. 25/2019) Section 10"
+  ],
+  "effectiveDate": "2026-02-01",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-005",
+      "tin": "1000005GST001",
+      "taxpayerName": "Apex Advisory Services LLP",
+      "businessType": "PARTNERSHIP",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "document": {
+      "fileName": "office_lease_agreement_feb2026.pdf",
+      "documentType": "RENT_INVOICE",
+      "supplierName": "Malé Commercial Tower Properties",
+      "supplierTin": "1005555GST001",
+      "invoiceNumber": "RENT-2026-02",
+      "issueDate": "2026-02-01",
+      "currency": "MVR",
+      "subtotal": 25000,
+      "gstAmount": 0,
+      "totalAmount": 25000
+    }
+  },
+  "expectedClassifications": {
+    "documentType": "RENT_INVOICE",
+    "accountingClassification": "EXPENSE",
+    "accountingCategory": "rental_repairs.office_rent",
+    "gstTreatment": "EXEMPT",
+    "incomeTaxTreatment": "DEDUCTIBLE",
+    "miraCategory": "rental_repairs",
+    "taxRate": 0
+  },
+  "expectedCalculations": {
+    "subtotal": 25000,
+    "taxableAmount": 25000,
+    "gstAmount": 0,
+    "totalAmount": 25000,
+    "claimableInputTax": 0,
+    "blockedInputTax": 0,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_205",
+    "boxValues": {
+      "box23_exempt_purchases": 25000,
+      "box21_input_tax_claimed": 0
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "12bece6b9994bb9e2e60b36d862fdb396436b2a1ce4ed865363e7fc2169aac4a"
+}

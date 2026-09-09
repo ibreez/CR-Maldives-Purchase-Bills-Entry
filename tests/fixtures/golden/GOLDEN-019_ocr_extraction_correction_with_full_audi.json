@@ -1,0 +1,71 @@
+{
+  "caseId": "GOLDEN-019",
+  "caseNumber": 19,
+  "title": "OCR Extraction Correction with Full Audit Trail & Lineage Preservation",
+  "description": "Human-in-the-loop correction of OCR subtotal error (MVR 1,800 misread -> corrected to MVR 18,000), preserving original raw OCR hash and logging audit event.",
+  "category": "OCR_CORRECTION",
+  "regulatoryReferences": [
+    "AI Development Rules Section 4.1 & Section 5",
+    "Tax Administration Regulation Section 20 (Integrity of Electronic Records)"
+  ],
+  "effectiveDate": "2026-05-20",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-019",
+      "tin": "1000019GST001",
+      "taxpayerName": "Velana Catering Services Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "document": {
+      "fileName": "handwritten_vegetable_bulk_receipt.pdf",
+      "documentType": "HANDWRITTEN_RECEIPT",
+      "supplierName": "Male Local Produce Market St. 4",
+      "issueDate": "2026-05-20",
+      "currency": "MVR",
+      "subtotal": 1800,
+      "gstAmount": 0,
+      "totalAmount": 1800,
+      "rawExtractionText": "Produce receipt total: 1800 (obscured digit)"
+    },
+    "parameters": {
+      "correctedSubtotal": 18000,
+      "correctedTotal": 18000,
+      "correctionReason": "Visual inspection of physical paper receipt shows MVR 18,000 total."
+    },
+    "sessionUser": {
+      "userId": "USER-VERIFIED-ACCOUNTANT",
+      "role": "ACCOUNTANT",
+      "name": "Fathimath Shifa"
+    }
+  },
+  "expectedClassifications": {
+    "documentType": "HANDWRITTEN_RECEIPT",
+    "accountingClassification": "COST_OF_SALES",
+    "gstTreatment": "NO_INPUT_TAX",
+    "incomeTaxTreatment": "DEDUCTIBLE",
+    "reviewStatus": "APPROVED"
+  },
+  "expectedCalculations": {
+    "subtotal": 18000,
+    "totalAmount": 18000,
+    "claimableInputTax": 0,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_205",
+    "boxValues": {
+      "box24_no_input_tax_purchases": 18000
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "b5032aeb05f4bd1c551ce71cd3959af254b9c7d9db5bcb0e162e828412564e2d"
+}

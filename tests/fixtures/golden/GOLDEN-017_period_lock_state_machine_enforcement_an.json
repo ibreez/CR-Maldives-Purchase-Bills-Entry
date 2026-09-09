@@ -1,0 +1,55 @@
+{
+  "caseId": "GOLDEN-017",
+  "caseNumber": 17,
+  "title": "Period Lock State Machine Enforcement and Mutation Blocking",
+  "description": "Verifies state machine transitions (OPEN -> REVIEW -> APPROVED -> LOCKED) and asserts that LOCKED period strictly rejects all financial mutations.",
+  "category": "PERIOD_CONTROL",
+  "regulatoryReferences": [
+    "Tax Administration Regulation (Regulation No. 2013/R-45) Section 18",
+    "Maldives Accounting Standards Immutability Standards"
+  ],
+  "effectiveDate": "2026-03-31",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-017",
+      "tin": "1000017GST001",
+      "taxpayerName": "Dhiffushi Coral Logistics Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "parameters": {
+      "periodKey": "2026-Q1",
+      "initialState": "OPEN",
+      "targetLockState": "LOCKED",
+      "attemptedMutationAmount": 15000
+    },
+    "sessionUser": {
+      "userId": "USER-FINANCE-CONTROLLER",
+      "role": "FINANCE_CONTROLLER",
+      "name": "Mariyam Nasheed"
+    }
+  },
+  "expectedClassifications": {
+    "reviewStatus": "APPROVED"
+  },
+  "expectedCalculations": {
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_205",
+    "boxValues": {
+      "period_lock_status": "LOCKED"
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "periodState": "LOCKED",
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "566504efaf257df95948619cff2c6beb5e7e405ece80362874ac04bd11749243"
+}

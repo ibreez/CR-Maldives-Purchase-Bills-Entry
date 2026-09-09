@@ -232,3 +232,9 @@ export function calculateEntityTaxLiability(
     notes
   };
 }
+
+export const EntityTaxService = {
+  calculateTax: (entityType: EntityType, taxableIncome: number, options?: EntityTaxCalculationOptions) =>
+    calculateEntityTaxLiability(taxableIncome, entityType, options),
+  calculateEntityTaxLiability
+};

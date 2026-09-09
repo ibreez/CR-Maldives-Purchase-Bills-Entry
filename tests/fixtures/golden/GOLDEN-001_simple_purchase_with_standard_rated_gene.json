@@ -1,0 +1,78 @@
+{
+  "caseId": "GOLDEN-001",
+  "caseNumber": 1,
+  "title": "Simple Purchase with Standard-Rated General GST",
+  "description": "Standard local business purchase with valid supplier TIN, 8% General GST, deductible expense, balanced double-entry journal and claimable input tax.",
+  "category": "GST",
+  "regulatoryReferences": [
+    "GST Act (Law No. 10/2011) Section 15",
+    "GST Regulation Section 38 (Tax Invoices)",
+    "Income Tax Act (Law No. 25/2019) Section 10 (Allowable Deductions)"
+  ],
+  "effectiveDate": "2026-03-15",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-001",
+      "tin": "1000001GST001",
+      "taxpayerName": "Male Trading Enterprise Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "document": {
+      "fileName": "stationery_invoice_2026.pdf",
+      "documentType": "SUPPLIER_INVOICE",
+      "supplierName": "Copier Plus Maldives",
+      "supplierTin": "1001234GST001",
+      "invoiceNumber": "INV-2026-8891",
+      "issueDate": "2026-03-15",
+      "currency": "MVR",
+      "subtotal": 5000,
+      "gstAmount": 400,
+      "totalAmount": 5400,
+      "items": [
+        {
+          "description": "A4 Printing Paper & Office Supplies",
+          "quantity": 10,
+          "unitPrice": 500,
+          "amount": 5000
+        }
+      ]
+    }
+  },
+  "expectedClassifications": {
+    "documentType": "SUPPLIER_INVOICE",
+    "accountingClassification": "EXPENSE",
+    "accountingCategory": "other_expenses.office_supplies",
+    "gstTreatment": "STANDARD_RATED",
+    "incomeTaxTreatment": "DEDUCTIBLE",
+    "miraCategory": "other_expenses",
+    "reviewStatus": "APPROVED",
+    "taxRate": 0.08
+  },
+  "expectedCalculations": {
+    "subtotal": 5000,
+    "taxableAmount": 5000,
+    "gstAmount": 400,
+    "totalAmount": 5400,
+    "claimableInputTax": 400,
+    "blockedInputTax": 0,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_205",
+    "boxValues": {
+      "box20_taxable_purchases": 5000,
+      "box21_input_tax_claimed": 400
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "9aa2eac52ecfbb7cd3e958aa450044a776cdb0da21cb389bf6ac32a6c6043091"
+}

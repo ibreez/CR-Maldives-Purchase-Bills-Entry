@@ -1,0 +1,167 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-09-02T14:07:40.403Z",
+  "totalCases": 20,
+  "fixtures": [
+    {
+      "caseId": "GOLDEN-001",
+      "caseNumber": 1,
+      "title": "Simple Purchase with Standard-Rated General GST",
+      "category": "GST",
+      "fileName": "GOLDEN-001_simple_purchase_with_standard_rated_gene.json",
+      "checksum": "9aa2eac52ecfbb7cd3e958aa450044a776cdb0da21cb389bf6ac32a6c6043091"
+    },
+    {
+      "caseId": "GOLDEN-002",
+      "caseNumber": 2,
+      "title": "General Sector GST Return Calculation (8% Standard Rate)",
+      "category": "GST",
+      "fileName": "GOLDEN-002_general_sector_gst_return_calculation_8_.json",
+      "checksum": "c65aa0f280e8287350421f73064c43f496182bde8123853c678f5e7984b9b894"
+    },
+    {
+      "caseId": "GOLDEN-003",
+      "caseNumber": 3,
+      "title": "Tourism GST 16% Regime (Historical Pre-July 2025)",
+      "category": "GST",
+      "fileName": "GOLDEN-003_tourism_gst_16_regime_historical_pre_jul.json",
+      "checksum": "fd9782be6101c459893541ea466a1b1c3aac1b8b91126f5bd99ccfb821558f46"
+    },
+    {
+      "caseId": "GOLDEN-004",
+      "caseNumber": 4,
+      "title": "Tourism GST 17% Regime (Effective 2025-07-01 Under Act No. 12/2024)",
+      "category": "GST",
+      "fileName": "GOLDEN-004_tourism_gst_17_regime_effective_2025_07_.json",
+      "checksum": "d2df0987443c8fbad3ccbcc559e13c41d5683e2dcf8beaa54bba40a9ea5f8f18"
+    },
+    {
+      "caseId": "GOLDEN-005",
+      "caseNumber": 5,
+      "title": "Statutory Exempt Purchase (Rent/Postal/Financial)",
+      "category": "GST",
+      "fileName": "GOLDEN-005_statutory_exempt_purchase_rent_postal_fi.json",
+      "checksum": "12bece6b9994bb9e2e60b36d862fdb396436b2a1ce4ed865363e7fc2169aac4a"
+    },
+    {
+      "caseId": "GOLDEN-006",
+      "caseNumber": 6,
+      "title": "Blocked Input Tax and Non-Deductible Hospitality Add-Back",
+      "category": "GST",
+      "fileName": "GOLDEN-006_blocked_input_tax_and_non_deductible_hos.json",
+      "checksum": "a3f52c9fef4a76ee7b183bcf42d0311b6d50d3a853b1c355b623bf4eae9ac076"
+    },
+    {
+      "caseId": "GOLDEN-007",
+      "caseNumber": 7,
+      "title": "Capital Asset Acquisition and Schedule 2 Capital Allowance Pooling",
+      "category": "CAPITAL_ASSETS",
+      "fileName": "GOLDEN-007_capital_asset_acquisition_and_schedule_2.json",
+      "checksum": "4bb9ac6ef5b5f445414a4c884432b5bc3d49402ca32c4a77363902f871d425fa"
+    },
+    {
+      "caseId": "GOLDEN-008",
+      "caseNumber": 8,
+      "title": "Foreign Currency Purchase with MMA Exchange Rate and FX Realization",
+      "category": "FX",
+      "fileName": "GOLDEN-008_foreign_currency_purchase_with_mma_excha.json",
+      "checksum": "af2a0d4e643d397763e67fa4d414087263d32b3a328d6a7c67f33078ab9694a0"
+    },
+    {
+      "caseId": "GOLDEN-009",
+      "caseNumber": 9,
+      "title": "Non-Resident Withholding Tax on Technical & Cloud Services (10%)",
+      "category": "NWT",
+      "fileName": "GOLDEN-009_non_resident_withholding_tax_on_technica.json",
+      "checksum": "5d8c17e715f988d9790b378626d68742592549d46feb622aff82d2585d4ec7aa"
+    },
+    {
+      "caseId": "GOLDEN-010",
+      "caseNumber": 10,
+      "title": "Non-Resident Contractor Withholding Tax (5%)",
+      "category": "NWT",
+      "fileName": "GOLDEN-010_non_resident_contractor_withholding_tax_.json",
+      "checksum": "a1de0af658175ebb29edc02a329929403b5ff07a443a3ef2a906752dd9c8fc0e"
+    },
+    {
+      "caseId": "GOLDEN-011",
+      "caseNumber": 11,
+      "title": "Double Tax Avoidance Agreement (DTAA) Treaty Relief Exemption",
+      "category": "NWT",
+      "fileName": "GOLDEN-011_double_tax_avoidance_agreement_dtaa_trea.json",
+      "checksum": "8520bdc958ec97ca5f6ec6360e4e5585025c25c4a2f6b8ad447160029b2d60bd"
+    },
+    {
+      "caseId": "GOLDEN-012",
+      "caseNumber": 12,
+      "title": "Company Income Tax (MIRA 604 v25.1 Progressive Calculation)",
+      "category": "INCOME_TAX",
+      "fileName": "GOLDEN-012_company_income_tax_mira_604_v25_1_progre.json",
+      "checksum": "1085023aaf1e5e39cae3a7018598651b9afe82849e55cd648f1bd368ab28ce32"
+    },
+    {
+      "caseId": "GOLDEN-013",
+      "caseNumber": 13,
+      "title": "Individual Income Tax 5-Bracket Progressive Calculation",
+      "category": "INCOME_TAX",
+      "fileName": "GOLDEN-013_individual_income_tax_5_bracket_progress.json",
+      "checksum": "dbb79329c2c5a7b2a6bb1df63478f17ff720b11805d6cb5f66fc424e3c5f8f5b"
+    },
+    {
+      "caseId": "GOLDEN-014",
+      "caseNumber": 14,
+      "title": "Prior Year Tax Loss Offset and Carry-Forward Lot Relief",
+      "category": "INCOME_TAX",
+      "fileName": "GOLDEN-014_prior_year_tax_loss_offset_and_carry_for.json",
+      "checksum": "f3b2d5e9cf236642e14843dc1df50a850765b481318044bfa361039c6950d713"
+    },
+    {
+      "caseId": "GOLDEN-015",
+      "caseNumber": 15,
+      "title": "Related-Party Transaction and Arm's Length Transfer Pricing Add-Back",
+      "category": "TRANSFER_PRICING",
+      "fileName": "GOLDEN-015_related_party_transaction_and_arm_s_leng.json",
+      "checksum": "55cbabde477e7967400b46a0dc450b349506f9e243d396b67a646de24aabb567"
+    },
+    {
+      "caseId": "GOLDEN-016",
+      "caseNumber": 16,
+      "title": "Controlled Foreign Entity (CFE) Attributable Income Inclusion",
+      "category": "CFE",
+      "fileName": "GOLDEN-016_controlled_foreign_entity_cfe_attributab.json",
+      "checksum": "6cbb5fc3e01b7a3316e925a663e604a7872edacff83932fc5266a507bd3cffa4"
+    },
+    {
+      "caseId": "GOLDEN-017",
+      "caseNumber": 17,
+      "title": "Period Lock State Machine Enforcement and Mutation Blocking",
+      "category": "PERIOD_CONTROL",
+      "fileName": "GOLDEN-017_period_lock_state_machine_enforcement_an.json",
+      "checksum": "566504efaf257df95948619cff2c6beb5e7e405ece80362874ac04bd11749243"
+    },
+    {
+      "caseId": "GOLDEN-018",
+      "caseNumber": 18,
+      "title": "Immutable Journal Reversal and Balanced Contra Entries",
+      "category": "ACCOUNTING_AUDIT",
+      "fileName": "GOLDEN-018_immutable_journal_reversal_and_balanced_.json",
+      "checksum": "ca869468adf95f1bf50be389821075fb08fc2d36f2a30cd6eeaf11366ec0da4a"
+    },
+    {
+      "caseId": "GOLDEN-019",
+      "caseNumber": 19,
+      "title": "OCR Extraction Correction with Full Audit Trail & Lineage Preservation",
+      "category": "OCR_CORRECTION",
+      "fileName": "GOLDEN-019_ocr_extraction_correction_with_full_audi.json",
+      "checksum": "b5032aeb05f4bd1c551ce71cd3959af254b9c7d9db5bcb0e162e828412564e2d"
+    },
+    {
+      "caseId": "GOLDEN-020",
+      "caseNumber": 20,
+      "title": "Comprehensive MIRA Offline Statutory Filing Package with Cryptographic Manifest",
+      "category": "FILING_PACKAGE",
+      "fileName": "GOLDEN-020_comprehensive_mira_offline_statutory_fil.json",
+      "checksum": "fe6a8a0fc11e136091e99642e0adbf155a2f14b162af5325b6e1777abd26fa77"
+    }
+  ]
+}

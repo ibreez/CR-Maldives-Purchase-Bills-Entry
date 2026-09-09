@@ -182,3 +182,38 @@ export function createFixedAssetFromTransaction(tx: TransactionRecord): FixedAss
     taxYearAcquired: tx.taxYear
   });
 }
+
+/**
+ * Converts a legacy FixedAssetRecord to authoritative FixedAsset
+ */
+export function toAuthoritativeFixedAsset(record: FixedAssetRecord): import('../../types/capitalAllowance').FixedAsset {
+  const cost = Number((record as any).cost ?? record.costPrice ?? 0);
+  const taxBasis = Number((record as any).taxBasis ?? record.closingWDV ?? cost);
+  const acqDate = record.acquisitionDate || `${record.taxYear}-01-01`;
+  const normalizedClass = normalizeMiraAssetClass(record.assetClass);
+
+  return {
+    assetId: record.assetId,
+    entityId: record.entityId,
+    outletId: record.outletId,
+    assetName: record.assetName,
+    taxClassification: normalizedClass,
+    cost,
+    taxBasis: Math.max(0, taxBasis),
+    acquisitionDate: acqDate,
+    inServiceDate: acqDate,
+    applicableRuleId: 'RULE-CA-DEFAULT',
+    allowanceClaimed: record.capitalAllowanceClaimed || 0,
+    closingTaxValue: Math.max(0, taxBasis),
+    isDisposed: record.isDisposed || false,
+    disposalDate: record.disposalDate,
+    disposalProceeds: Number((record as any).disposalProceeds ?? record.disposalValue ?? 0),
+    status: record.isDisposed ? 'DISPOSED' : (taxBasis === 0 ? 'FULLY_ALLOWED' : 'ACTIVE'),
+    accountingCarryingAmount: cost,
+    accumulatedAccountingDepreciation: 0,
+    transactionId: record.transactionId,
+    documentId: record.documentId,
+    notes: record.notes
+  };
+}
+

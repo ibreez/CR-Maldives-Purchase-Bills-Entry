@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GoldenTaxCaseFixtureSchema",
+  "description": "JSON Schema for MIRA Statutory Golden Regulatory Benchmark Fixtures (Phase 41)",
+  "type": "object",
+  "required": [
+    "caseId",
+    "caseNumber",
+    "title",
+    "description",
+    "category",
+    "regulatoryReferences",
+    "effectiveDate",
+    "inputs",
+    "expectedClassifications",
+    "expectedCalculations",
+    "expectedReturnValues",
+    "expectedReconciliationState",
+    "immutableSha256Checksum"
+  ],
+  "properties": {
+    "caseId": { "type": "string", "pattern": "^GOLDEN-(00[1-9]|0[1-9][0-9]|100)$" },
+    "caseNumber": { "type": "integer", "minimum": 1, "maximum": 20 },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "category": { "type": "string" },
+    "regulatoryReferences": { "type": "array", "items": { "type": "string" } },
+    "effectiveDate": { "type": "string" },
+    "inputs": { "type": "object" },
+    "expectedClassifications": { "type": "object" },
+    "expectedCalculations": { "type": "object" },
+    "expectedReturnValues": { "type": "object" },
+    "expectedReconciliationState": { "type": "object" },
+    "immutableSha256Checksum": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

@@ -29,12 +29,222 @@ import {
   AssetClass,
   TaxAuditCheck
 } from "./src/types.js";
+import { InvoiceEvidenceService, InvoiceValidator } from "./src/services/invoice/index.js";
+import { CanonicalClassificationEngine } from "./src/services/classification/index.js";
+import { canonicalGstEngine } from "./src/services/gst/index.js";
+import {
+  calculateNwt,
+  generateMira602Return,
+  reconcileNwtToGl,
+  validateDtaaCertificate,
+  buildNwtPeriod
+} from "./src/services/wht/index.js";
+import { defaultIncomeTaxEngine, defaultTaxExplainabilityEngine } from "./src/services/tax/index.js";
+import { ComplianceDashboardService } from "./src/services/compliance/index.js";
+import {
+  PreFilingControlEngine,
+  PreFilingBlockedError,
+  runPreFilingCheck,
+  FilingPackageGenerator
+} from "./src/services/filing/index.js";
+import {
+  defaultRuleResolver,
+  SEEDED_REGULATORY_RULES,
+  RegulatorySnapshotService,
+  RegulatoryRegressionEngine
+} from "./src/regulatory/index.js";
+import { prisma } from "./src/db/client.js";
+import cookieParser from "cookie-parser";
+import {
+  sessionManager,
+  PasswordSecurity,
+  securityHeadersMiddleware,
+  authRateLimiter,
+  apiRateLimiter,
+  uploadRateLimiter,
+  csrfProtectionMiddleware,
+  UploadValidator,
+  BILL_UPLOAD_CONSTRAINTS,
+  TEMPLATE_UPLOAD_CONSTRAINTS,
+  setUserProvider
+} from "./src/services/security/index.js";
+import { AIGovernanceService } from "./src/services/ai/index.js";
+import {
+  correlationIdMiddleware,
+  requestLoggingMiddleware,
+  databaseHealthService,
+  centralizedErrorHandler,
+  migrationRunner,
+  getEnvironmentConfig,
+  disasterRecoveryManager,
+  disasterRecoveryWAL,
+  PerformanceBenchmarkEngine,
+  logger
+} from "./src/infrastructure/index.js";
 
 const PORT = 3000;
 const app = express();
 
+// Request Correlation ID & Structured Access Logging
+app.use(correlationIdMiddleware);
+app.use(requestLoggingMiddleware);
+
+// Security Headers & Request Parsers
+app.use(securityHeadersMiddleware);
+app.use(cookieParser());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(csrfProtectionMiddleware);
+app.use("/api/", apiRateLimiter.middleware());
+
+// Health check endpoint (Liveness probe) for ingress / platform monitoring
+app.get(["/api/health", "/health"], (_req, res) => {
+  const envConfig = getEnvironmentConfig();
+  res.json({
+    status: "ok",
+    liveness: "UP",
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    version: "1.0.0",
+    environment: envConfig.env
+  });
+});
+
+// Readiness check endpoint (Readiness probe) - verifies database, storage, and subsystem health
+app.get(["/api/ready", "/ready"], async (_req, res) => {
+  const readiness = await databaseHealthService.checkReadiness();
+  const statusCode = readiness.status === 'ready' ? 200 : (readiness.status === 'degraded' ? 200 : 503);
+  res.status(statusCode).json(readiness);
+});
+
+// Diagnostics endpoint for database failure simulation
+app.post("/api/infrastructure/simulate-db-failure", requireAuth, requireSuperAdmin, (req, res) => {
+  const { enabled, reason } = req.body;
+  databaseHealthService.setSimulationFailure(Boolean(enabled), reason);
+  res.json({
+    success: true,
+    simulationActive: databaseHealthService.isSimulatingFailure(),
+    message: enabled ? "Database failure simulation activated" : "Database failure simulation deactivated"
+  });
+});
+
+// Database Migration status endpoint
+app.get("/api/infrastructure/migrations", requireAuth, requireSuperAdmin, (_req, res) => {
+  const status = migrationRunner.verifyMigrationIntegrity();
+  res.json(status);
+});
+
+// Disaster Recovery Endpoints
+app.get("/api/infrastructure/disaster-recovery/backups", requireAuth, requireSuperAdmin, (_req, res) => {
+  const backups = disasterRecoveryManager.getStoredBackups();
+  res.json({ success: true, backups });
+});
+
+app.post("/api/infrastructure/disaster-recovery/backup", requireAuth, requireSuperAdmin, (req, res) => {
+  try {
+    const { database, documents, auditTrail, filingPackages, offsiteConfig } = req.body;
+    const backupPkg = disasterRecoveryManager.createFullBackup({
+      database: database || { tenants: [], users: [], accounts: [], accountingPeriods: [], journals: [], bills: [], taxCalculations: [], taxLossLots: [], fixedAssets: [], metadata: { totalRecords: 0, schemaVersion: '1.0', exportedAt: new Date().toISOString() } },
+      documents,
+      auditTrail,
+      filingPackages,
+      offsiteConfig
+    });
+    res.json({ success: true, manifest: backupPkg.manifest });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/infrastructure/disaster-recovery/restore", requireAuth, requireSuperAdmin, (req, res) => {
+  try {
+    const { backupPackage, backupId } = req.body;
+    const targetPkg = backupPackage || (backupId ? disasterRecoveryManager.getBackupById(backupId) : null);
+    if (!targetPkg) {
+      return res.status(404).json({ success: false, error: "Backup package not found" });
+    }
+    const restoreResult = disasterRecoveryManager.restoreFromBackup(targetPkg);
+    res.json({ success: true, result: restoreResult });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/infrastructure/disaster-recovery/pitr", requireAuth, requireSuperAdmin, (req, res) => {
+  try {
+    const { baseBackupId, basePackage, targetTimestamp } = req.body;
+    const targetPkg = basePackage || (baseBackupId ? disasterRecoveryManager.getBackupById(baseBackupId) : null);
+    if (!targetPkg) {
+      return res.status(404).json({ success: false, error: "Base backup package not found for PITR" });
+    }
+    const pitrResult = disasterRecoveryManager.restoreToPointInTime(targetPkg, targetTimestamp);
+    res.json({ success: true, result: pitrResult });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/infrastructure/disaster-recovery/verify", requireAuth, requireSuperAdmin, (req, res) => {
+  try {
+    const { backupPackage, backupId, referenceTaxPayable } = req.body;
+    const targetPkg = backupPackage || (backupId ? disasterRecoveryManager.getBackupById(backupId) : null);
+    if (!targetPkg) {
+      return res.status(404).json({ success: false, error: "Backup package not found for verification" });
+    }
+    const verification = disasterRecoveryManager.verifySystemIntegrity(targetPkg, referenceTaxPayable);
+    res.json({ success: verification.passed, verification });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Phase 48 — High-Volume Performance Benchmark & Diagnostics Endpoints
+app.get("/api/infrastructure/performance/metrics", requireAuth, requireSuperAdmin, (_req, res) => {
+  const latest = PerformanceBenchmarkEngine.getLatestReport();
+  if (!latest) {
+    return res.json({
+      status: "NO_BENCHMARK_RUN",
+      message: "No performance benchmark has been run yet in this session. Trigger via POST /api/infrastructure/performance/benchmark or npm run benchmark."
+    });
+  }
+  res.json({ success: true, report: latest });
+});
+
+app.post("/api/infrastructure/performance/benchmark", requireAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const { invoiceCount, linesPerInvoice, journalLineCount, isQuick } = req.body || {};
+    const config = isQuick
+      ? { invoiceCount: 1000, linesPerInvoice: 10, journalLineCount: 100000 }
+      : {
+          invoiceCount: invoiceCount || 10000,
+          linesPerInvoice: linesPerInvoice || 10,
+          journalLineCount: journalLineCount || 1000000
+        };
+
+    const report = await PerformanceBenchmarkEngine.runBenchmark(config);
+    res.json({ success: true, report });
+  } catch (err: any) {
+    logger.error("Performance benchmark run error", { error: { name: err.name, message: err.message, stack: err.stack } });
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/infrastructure/performance/bottlenecks", requireAuth, requireSuperAdmin, (_req, res) => {
+  const latest = PerformanceBenchmarkEngine.getLatestReport();
+  if (!latest) {
+    return res.json({
+      success: true,
+      bottlenecks: [],
+      message: "Run a benchmark first to evaluate bottlenecks."
+    });
+  }
+  res.json({
+    success: true,
+    totalBottlenecks: latest.bottlenecks.length,
+    bottlenecks: latest.bottlenecks,
+    calculationIdentityVerified: latest.calculationIdentityVerified
+  });
+});
 
 // Ensure data directories exist
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -613,6 +823,9 @@ function saveBills(bills: BillRecord[]) {
   fs.writeFileSync(BILLS_FILE, JSON.stringify(bills, null, 2));
 }
 
+// Initialize security user provider
+setUserProvider(() => getUsers());
+
 // Authentication Middleware
 function getAuthUser(req: express.Request): AuthUser | null {
   const authHeader = req.headers.authorization;
@@ -623,21 +836,57 @@ function getAuthUser(req: express.Request): AuthUser | null {
     token = authHeader.substring(7);
   }
 
+  // Also support secure HttpOnly cookie
+  if (!token && (req as any).cookies && (req as any).cookies.cr_session) {
+    token = (req as any).cookies.cr_session;
+  }
+
+  if (!token && req.headers.cookie) {
+    const match = req.headers.cookie.match(/(?:^|;\s*)cr_session=([^;]+)/);
+    if (match && match[1]) {
+      token = decodeURIComponent(match[1]);
+    }
+  }
+
   if (!token) {
     return null;
   }
 
-  const sessions = getSessions();
-  const session = sessions.find((s) => s.token === token);
+  // 1. Check cryptographically secure session manager with expiration
+  let session = sessionManager.getSession(token);
+  let userId = session?.userId;
+
+  // 2. Backward compatibility fallback for pre-existing sessions
   if (!session) {
+    const legacySessions = getSessions();
+    const legacySession = legacySessions.find((s) => s.token === token);
+    if (legacySession) {
+      userId = legacySession.userId;
+      // Auto-upgrade legacy session into secure session manager
+      const legacyUser = getUsers().find((u) => u.id === legacySession.userId);
+      if (legacyUser) {
+        session = sessionManager.createSession({
+          userId: legacyUser.id,
+          tenantId: legacyUser.outlet_id || "DEFAULT-TENANT",
+          role: legacyUser.role,
+          username: legacyUser.username
+        });
+      }
+    }
+  }
+
+  if (!userId) {
     return null;
   }
 
   const users = getUsers();
-  const user = users.find((u) => u.id === session.userId && u.status === "active");
+  const user = users.find((u) => u.id === userId && u.status === "active");
   if (!user) {
     return null;
   }
+
+  // Touch active session
+  sessionManager.touchSession(token);
 
   const outlets = getOutlets();
   const outlet = user.outlet_id ? outlets.find((o) => o.id === user.outlet_id) : null;
@@ -1040,12 +1289,12 @@ function validateBill(data: ExtractedBillData, existingBills: BillRecord[], curr
   };
 }
 
-// Serve uploads
+// Serve uploads with path traversal and static serving safeguards
 app.use("/uploads", express.static(UPLOADS_DIR));
 
 // ---------------- AUTH ROUTES ----------------
 
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", authRateLimiter.middleware(), (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: "Username/Email and password are required." });
@@ -1065,7 +1314,8 @@ app.post("/api/auth/login", (req, res) => {
   }
 
   const expectedPass = passwords[user.id] || "outlet123";
-  if (password !== expectedPass) {
+  const isValidPassword = PasswordSecurity.verifyPassword(password, expectedPass);
+  if (!isValidPassword) {
     return res.status(401).json({ error: "Invalid username or password." });
   }
 
@@ -1073,15 +1323,33 @@ app.post("/api/auth/login", (req, res) => {
   user.lastLogin = new Date().toISOString();
   saveUsers(users);
 
-  // Generate session token
-  const token = "session-" + Date.now() + "-" + Math.random().toString(36).slice(2, 9);
-  const sessions = getSessions();
-  sessions.push({
-    token,
+  // Generate cryptographically secure session
+  const session = sessionManager.createSession({
     userId: user.id,
-    createdAt: new Date().toISOString()
+    tenantId: user.outlet_id || (user.role === "super_admin" ? "outlet-all" : "DEFAULT-TENANT"),
+    role: user.role,
+    username: user.username,
+    ipAddress: typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"] : req.socket.remoteAddress,
+    userAgent: req.headers["user-agent"]
   });
-  saveSessions(sessions);
+
+  // Backward compatibility mirror in sessions.json
+  const legacySessions = getSessions();
+  legacySessions.push({
+    token: session.token,
+    userId: user.id,
+    createdAt: session.createdAt
+  });
+  saveSessions(legacySessions);
+
+  // Set secure HttpOnly cookie
+  res.cookie("cr_session", session.token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 24 * 60 * 60 * 1000,
+    path: "/"
+  });
 
   const outlet = user.outlet_id ? outlets.find((o) => o.id === user.outlet_id) : null;
   const authUser: AuthUser = {
@@ -1094,13 +1362,13 @@ app.post("/api/auth/login", (req, res) => {
     outlet_name: outlet ? outlet.name : user.role === "super_admin" ? "All Outlets (Super Admin)" : "Branch Outlet"
   };
 
-  const response: LoginResponse = { token, user: authUser };
+  const response: LoginResponse = { token: session.token, user: authUser };
   res.json(response);
 });
 
 app.get("/api/auth/me", requireAuth, (req, res) => {
   const user = (req as any).user as AuthUser;
-  res.json({ user });
+  res.json({ user: PasswordSecurity.sanitizeUser(user) });
 });
 
 app.post("/api/auth/logout", requireAuth, (req, res) => {
@@ -1108,13 +1376,18 @@ app.post("/api/auth/logout", requireAuth, (req, res) => {
   const tokenHeader = req.headers["x-auth-token"] as string;
   let token = tokenHeader;
   if (authHeader && authHeader.startsWith("Bearer ")) token = authHeader.substring(7);
+  if (!token && (req as any).cookies && (req as any).cookies.cr_session) {
+    token = (req as any).cookies.cr_session;
+  }
 
   if (token) {
+    sessionManager.revokeSession(token);
     let sessions = getSessions();
     sessions = sessions.filter((s) => s.token !== token);
     saveSessions(sessions);
   }
 
+  res.clearCookie("cr_session", { path: "/" });
   res.json({ success: true, message: "Logged out successfully" });
 });
 
@@ -1213,11 +1486,12 @@ app.get("/api/users", requireAuth, requireSuperAdmin, (_req, res) => {
   const users = getUsers();
   const outlets = getOutlets();
 
-  // Populate latest outlet_name
+  // Populate latest outlet_name and sanitize user records (never leak passwords)
   const populated = users.map((u) => {
     const o = u.outlet_id ? outlets.find((out) => out.id === u.outlet_id) : null;
+    const sanitized = PasswordSecurity.sanitizeUser(u);
     return {
-      ...u,
+      ...sanitized,
       outlet_name: o ? o.name : u.role === "super_admin" ? "All Outlets (Super Admin)" : "Unassigned"
     };
   });
@@ -1257,12 +1531,12 @@ app.post("/api/users", requireAuth, requireSuperAdmin, (req, res) => {
   users.push(newUser);
   saveUsers(users);
 
-  // Save password
+  // Securely save password hash
   const passwords = getPasswords();
-  passwords[newUser.id] = password;
+  passwords[newUser.id] = PasswordSecurity.hashPassword(password);
   savePasswords(passwords);
 
-  res.json(newUser);
+  res.json(PasswordSecurity.sanitizeUser(newUser));
 });
 
 app.put("/api/users/:id", requireAuth, requireSuperAdmin, (req, res) => {
@@ -1293,7 +1567,7 @@ app.put("/api/users/:id", requireAuth, requireSuperAdmin, (req, res) => {
   users[idx] = current;
   saveUsers(users);
 
-  res.json(current);
+  res.json(PasswordSecurity.sanitizeUser(current));
 });
 
 app.post("/api/users/:id/reset-password", requireAuth, requireSuperAdmin, (req, res) => {
@@ -1310,8 +1584,11 @@ app.post("/api/users/:id/reset-password", requireAuth, requireSuperAdmin, (req, 
   }
 
   const passwords = getPasswords();
-  passwords[id] = newPassword;
+  passwords[id] = PasswordSecurity.hashPassword(newPassword);
   savePasswords(passwords);
+
+  // Invalidate all existing active sessions for this user for security
+  sessionManager.revokeAllUserSessions(id);
 
   res.json({ success: true, message: `Password reset successfully for user ${user.username}.` });
 });
@@ -1415,7 +1692,7 @@ app.get("/api/settings", requireAuth, (_req, res) => {
   res.json(getAppSettings());
 });
 
-app.put("/api/settings", requireAuth, (req, res) => {
+app.put("/api/settings", requireAuth, requireSuperAdmin, (req, res) => {
   const current = getAppSettings();
   const updated = { ...current, ...req.body };
   saveAppSettings(updated);
@@ -1488,12 +1765,21 @@ app.get("/api/bills/:id", requireAuth, (req, res) => {
 });
 
 // AI Single Bill Extraction & Creation with Automatic Outlet Assignment
-app.post("/api/bills/analyze", requireAuth, upload.single("billFile"), async (req, res) => {
+app.post("/api/bills/analyze", requireAuth, uploadRateLimiter.middleware(), upload.single("billFile"), async (req, res) => {
   try {
     const user = (req as any).user as AuthUser;
 
     if (!req.file) {
       return res.status(400).json({ error: "No bill file uploaded." });
+    }
+
+    // Cryptographic & MIME Magic-Bytes File Validation
+    const uploadValidation = UploadValidator.validateFile(req.file, BILL_UPLOAD_CONSTRAINTS);
+    if (!uploadValidation.isValid) {
+      if (req.file.path && fs.existsSync(req.file.path)) {
+        try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
+      }
+      return res.status(400).json({ error: uploadValidation.error });
     }
 
     // Determine target outlet
@@ -1525,6 +1811,7 @@ app.post("/api/bills/analyze", requireAuth, upload.single("billFile"), async (re
 
     let extractedData: ExtractedBillData | null = null;
     let confidence: FieldConfidence | null = null;
+    let lastRawJson = "";
     let ocrAttempts = 0;
     let ocrErrorMsg: string | null = null;
 
@@ -1760,7 +2047,8 @@ ${retryNote ? `\nRETRY FEEDBACK FROM PREVIOUS ATTEMPT: ${retryNote}\nRe-examine 
           overall: parsed.confidence?.overall ?? 85
         };
 
-        return { data, conf };
+        let rawJsonOutput = rawJson;
+        return { data, conf, rawJson: rawJsonOutput };
       };
 
       try {
@@ -1768,6 +2056,7 @@ ${retryNote ? `\nRETRY FEEDBACK FROM PREVIOUS ATTEMPT: ${retryNote}\nRe-examine 
         const res1 = await runGeminiExtraction();
         extractedData = res1.data;
         confidence = res1.conf;
+        lastRawJson = res1.rawJson;
 
         // Check if Attempt #1 has math errors or critical issues that justify Attempt #2
         const existingBills = getBills();
@@ -1783,6 +2072,7 @@ ${retryNote ? `\nRETRY FEEDBACK FROM PREVIOUS ATTEMPT: ${retryNote}\nRe-examine 
             if (v2.is_valid || v2.issues.length <= v1.issues.length) {
               extractedData = res2.data;
               confidence = res2.conf;
+              lastRawJson = res2.rawJson;
             }
           } catch (retryErr) {
             console.warn("OCR Retry failed, keeping Attempt 1 results:", retryErr);
@@ -1848,7 +2138,7 @@ ${retryNote ? `\nRETRY FEEDBACK FROM PREVIOUS ATTEMPT: ${retryNote}\nRe-examine 
     const yearVal = parseInt(quarterStr.split("-")[0], 10) || new Date().getFullYear();
 
     const ocrStatus = !isOcrSuccess ? "FAILED" : validation.is_valid ? "VALIDATED" : "NEEDS_REVIEW";
-    const needsReview = !validation.is_valid || !isOcrSuccess || confidence.overall < 80;
+    let needsReview = !validation.is_valid || !isOcrSuccess || confidence.overall < 80;
 
     let reviewReason: string | null = null;
     if (!isOcrSuccess) {
@@ -1859,8 +2149,48 @@ ${retryNote ? `\nRETRY FEEDBACK FROM PREVIOUS ATTEMPT: ${retryNote}\nRe-examine 
       reviewReason = `Low OCR confidence (${confidence.overall}%). Please verify extracted numbers.`;
     }
 
+    const billId = "bill-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7);
+
+    // AI Governance Integration: Immutable lineage tracking, SHA-256 hash, and automated risk assessment
+    let aiExtractionId: string | undefined = undefined;
+    let aiGovernanceMeta: any = undefined;
+    if (isOcrSuccess) {
+      try {
+        const aiExtraction = AIGovernanceService.recordAIExtraction({
+          documentId: billId,
+          tenantId: targetOutletId,
+          model: "gemini-3.6-flash",
+          modelVersion: "2026-v1.0",
+          promptVersion: "mira-bill-extraction-v3.0",
+          rawResponseText: lastRawJson || JSON.stringify(extractedData),
+          normalizedOutput: extractedData,
+          confidence,
+          isRetryAttempt: ocrAttempts > 1
+        });
+        aiExtractionId = aiExtraction.metadata.extractionId;
+        const aiSuggestion = AIGovernanceService.generateAISuggestionsAndAssessRisk(aiExtraction, {
+          taxpayerTin: settings.myTin
+        });
+        aiGovernanceMeta = {
+          model: aiExtraction.metadata.model,
+          modelVersion: aiExtraction.metadata.modelVersion,
+          promptVersion: aiExtraction.metadata.promptVersion,
+          rawOutputHash: aiExtraction.metadata.rawOutputHash,
+          riskScore: aiSuggestion.riskScore,
+          anomalies: aiSuggestion.anomaliesDetected.map((a) => a.message),
+          requiresHumanReview: aiSuggestion.requiresHumanReview
+        };
+        if (aiSuggestion.requiresHumanReview && !needsReview) {
+          needsReview = true;
+          reviewReason = reviewReason ? `${reviewReason} | AI Gov: ${aiSuggestion.reviewTriggers.join(', ')}` : `AI Governance: ${aiSuggestion.reviewTriggers.join(', ')}`;
+        }
+      } catch (govErr) {
+        console.warn("AI Governance extraction record notice:", govErr);
+      }
+    }
+
     const newBill: BillRecord = {
-      id: "bill-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+      id: billId,
       outlet_id: targetOutletId,
       outlet_name: targetOutletName,
       uploaded_by: {
@@ -1873,8 +2203,8 @@ ${retryNote ? `\nRETRY FEEDBACK FROM PREVIOUS ATTEMPT: ${retryNote}\nRe-examine 
       fileSize: req.file.size,
       fileUrl: `/uploads/${req.file.filename}`,
       uploadDate: new Date().toISOString(),
-      status: (settings.autoApproveHighConfidence && confidence.overall >= 95 && validation.is_valid) ? "verified" : "pending_review",
-      ocr_status: (settings.autoApproveHighConfidence && confidence.overall >= 95 && validation.is_valid) ? "APPROVED" : ocrStatus,
+      status: "pending_review",
+      ocr_status: ocrStatus,
       ocr_attempts: Math.max(1, ocrAttempts),
       needs_review: needsReview,
       review_reason: reviewReason,
@@ -1885,15 +2215,99 @@ ${retryNote ? `\nRETRY FEEDBACK FROM PREVIOUS ATTEMPT: ${retryNote}\nRe-examine 
       quarter: quarterStr,
       year: yearVal,
       updatedAt: new Date().toISOString(),
+      ai_extraction_id: aiExtractionId,
+      ai_governance: aiGovernanceMeta,
       audit_trail: [
         {
           date: new Date().toISOString(),
           action: "Bill Uploaded & Analyzed",
           performedBy: user.name,
-          details: `Doc Type: ${extractedData.document_type}, Tax Status: ${extractedData.tax_status}, OCR Status: ${ocrStatus}, Attempts: ${Math.max(1, ocrAttempts)}`
+          details: `Doc Type: ${extractedData.document_type}, Tax Status: ${extractedData.tax_status}, OCR Status: ${ocrStatus}, Attempts: ${Math.max(1, ocrAttempts)}${aiExtractionId ? `, AI Lineage: ${aiExtractionId}` : ''}`
         }
       ]
     };
+
+    // Store OCR Field Evidence in Prisma Relational Database
+    try {
+      const tenantId = user.outlet_id || "DEFAULT-TENANT";
+      await InvoiceEvidenceService.createInvoiceWithEvidence({
+        tenantId,
+        fileName: req.file.originalname,
+        fileUrl: `/uploads/${req.file.filename}`,
+        fileType: mimeType,
+        invoiceNumber: extractedData.invoice.number,
+        invoiceDate: extractedData.invoice.date,
+        currency: extractedData.invoice.currency || "MVR",
+        taxableAmount: extractedData.totals.taxable_value,
+        gstAmount: extractedData.totals.gst_amount,
+        totalAmount: extractedData.totals.invoice_total,
+        invoiceType: "PURCHASE",
+        status: "ACCOUNTANT_REVIEW",
+        lines: extractedData.items.map((it, idx) => ({
+          lineNumber: idx + 1,
+          description: it.description || `Item ${idx + 1}`,
+          quantity: it.quantity ?? 1,
+          unitPrice: it.rate ?? it.taxable_value ?? 0,
+          taxableAmount: it.taxable_value ?? 0,
+          gstRate: (it.gst_rate ?? 8) / 100,
+          gstAmount: it.gst_amount ?? 0,
+          totalAmount: it.total ?? 0
+        })),
+        fieldEvidences: {
+          supplierName: {
+            value: extractedData.supplier.name,
+            extractedValue: extractedData.supplier.name,
+            confidence: confidence.supplier_name,
+            source: 'OCR_MODEL',
+            ocrModel: 'gemini-3.6-flash'
+          },
+          supplierTin: {
+            value: extractedData.supplier.gstin,
+            extractedValue: extractedData.supplier.gstin,
+            confidence: confidence.supplier_tin,
+            source: 'OCR_MODEL',
+            ocrModel: 'gemini-3.6-flash'
+          },
+          invoiceNumber: {
+            value: extractedData.invoice.number,
+            extractedValue: extractedData.invoice.number,
+            confidence: confidence.invoice_number,
+            source: 'OCR_MODEL',
+            ocrModel: 'gemini-3.6-flash'
+          },
+          invoiceDate: {
+            value: extractedData.invoice.date,
+            extractedValue: extractedData.invoice.date,
+            confidence: confidence.invoice_date,
+            source: 'OCR_MODEL',
+            ocrModel: 'gemini-3.6-flash'
+          },
+          taxableAmount: {
+            value: extractedData.totals.taxable_value,
+            extractedValue: extractedData.totals.taxable_value,
+            confidence: confidence.taxable_value,
+            source: 'OCR_MODEL',
+            ocrModel: 'gemini-3.6-flash'
+          },
+          gstAmount: {
+            value: extractedData.totals.gst_amount,
+            extractedValue: extractedData.totals.gst_amount,
+            confidence: confidence.gst_amount,
+            source: 'OCR_MODEL',
+            ocrModel: 'gemini-3.6-flash'
+          },
+          totalAmount: {
+            value: extractedData.totals.invoice_total,
+            extractedValue: extractedData.totals.invoice_total,
+            confidence: confidence.invoice_total,
+            source: 'OCR_MODEL',
+            ocrModel: 'gemini-3.6-flash'
+          }
+        }
+      });
+    } catch (evidenceDbErr) {
+      console.warn("Evidence database sync info:", evidenceDbErr);
+    }
 
     existingBills.push(newBill);
     saveBills(existingBills);
@@ -2223,6 +2637,61 @@ CRITICAL INSTRUCTIONS & RULES:
   }
 });
 
+// Phase 39: AI Governance Status & Policy Endpoint
+app.get("/api/ai/governance/status", requireAuth, (req, res) => {
+  const thresholds = AIGovernanceService.getReviewThresholds();
+  res.json({
+    framework: "MIRA Tax Engine AI Governance (Phase 39)",
+    policy: {
+      aiRole: "ASSISTANT_EXTRACTOR_AND_SUGGESTER",
+      postingAuthority: "HUMAN_ONLY",
+      approvalAuthority: "HUMAN_ONLY",
+      regulatoryOverrideAllowed: false,
+      deterministicEngineOverride: true
+    },
+    thresholds,
+    safetyInvariants: [
+      "AI cannot directly post transactions to General Ledger",
+      "AI cannot alter statutory tax rates (8% General, 16% Tourism)",
+      "AI cannot approve tax returns or invoices",
+      "Low confidence (< 80% field, < 85% overall) requires mandatory human review",
+      "All human overrides of AI extractions are immutably audited with SHA-256 state hashes"
+    ]
+  });
+});
+
+// Phase 39: AI Governance Lineage & Risk Assessment for a specific bill
+app.get("/api/bills/:id/governance", requireAuth, (req, res) => {
+  const user = (req as any).user as AuthUser;
+  const { id } = req.params;
+  const bills = getBills();
+  const bill = bills.find((b) => b.id === id);
+
+  if (!bill) {
+    return res.status(404).json({ error: "Bill not found" });
+  }
+
+  // Tenant Isolation Check
+  if (user.role === "outlet_user" && bill.outlet_id !== user.outlet_id) {
+    return res.status(403).json({ error: "Access Denied: Cannot view governance details for bill from another outlet." });
+  }
+
+  const extractionId = bill.ai_extraction_id;
+  const extraction = extractionId ? AIGovernanceService.getExtraction(extractionId) : null;
+  const overrides = extractionId ? AIGovernanceService.getOverridesForExtraction(extractionId) : [];
+
+  res.json({
+    billId: bill.id,
+    ai_extraction_id: extractionId || null,
+    ai_governance: bill.ai_governance || null,
+    extractionMetadata: extraction?.metadata || null,
+    overrides,
+    status: bill.status,
+    needs_review: bill.needs_review,
+    review_reason: bill.review_reason
+  });
+});
+
 // Delete bill with backend isolation check
 app.delete("/api/bills/:id", requireAuth, (req, res) => {
   const user = (req as any).user as AuthUser;
@@ -2255,6 +2724,433 @@ app.delete("/api/bills/:id", requireAuth, (req, res) => {
   res.json({ success: true, message: "Bill deleted successfully" });
 });
 
+// -----------------------------------------------------------------------------
+// PHASE 22: INVOICE EVIDENCE & LIFECYCLE API ENDPOINTS
+// -----------------------------------------------------------------------------
+
+// GET /api/invoices/:id/evidence - Retrieve full evidence and audit trail
+app.get("/api/invoices/:id/evidence", requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user as AuthUser;
+    const { id } = req.params;
+    const tenantId = user.outlet_id || "DEFAULT-TENANT";
+
+    const invoiceWithEvidence = await InvoiceEvidenceService.getInvoiceWithEvidence(tenantId, id);
+    if (!invoiceWithEvidence) {
+      return res.status(404).json({ error: `Invoice with ID '${id}' not found.` });
+    }
+
+    res.json(invoiceWithEvidence);
+  } catch (error: any) {
+    console.error("Error retrieving invoice evidence:", error);
+    res.status(500).json({ error: error.message || "Failed to retrieve invoice evidence." });
+  }
+});
+
+// POST /api/invoices/:id/correct - Correct OCR field while preserving original extraction
+app.post("/api/invoices/:id/correct", requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user as AuthUser;
+    const { id } = req.params;
+    const { fieldName, newValue, reason } = req.body;
+    const tenantId = user.outlet_id || "DEFAULT-TENANT";
+
+    if (!fieldName || newValue === undefined) {
+      return res.status(400).json({ error: "fieldName and newValue are required." });
+    }
+
+    const updated = await InvoiceEvidenceService.correctFieldEvidence({
+      invoiceId: id,
+      tenantId,
+      fieldName,
+      newValue,
+      correctedBy: user.name,
+      correctionReason: reason || "User manual correction"
+    });
+
+    res.json({ success: true, invoice: updated });
+  } catch (error: any) {
+    console.error("Error correcting field evidence:", error);
+    res.status(500).json({ error: error.message || "Failed to correct field evidence." });
+  }
+});
+
+// POST /api/invoices/:id/approve - Approve invoice after validation
+app.post("/api/invoices/:id/approve", requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user as AuthUser;
+    const { id } = req.params;
+    const tenantId = user.outlet_id || "DEFAULT-TENANT";
+
+    const approved = await InvoiceEvidenceService.approveInvoice(tenantId, id, user.name);
+    res.json({ success: true, invoice: approved });
+  } catch (error: any) {
+    console.error("Error approving invoice:", error);
+    res.status(400).json({ error: error.message || "Failed to approve invoice." });
+  }
+});
+
+// POST /api/invoices/:id/post - Post approved invoice to GL
+app.post("/api/invoices/:id/post", requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user as AuthUser;
+    const { id } = req.params;
+    const tenantId = user.outlet_id || "DEFAULT-TENANT";
+
+    const result = await InvoiceEvidenceService.postInvoiceToLedger(tenantId, id, user.name);
+    res.json({ success: true, invoice: result.invoice, journal: result.journal });
+  } catch (error: any) {
+    console.error("Error posting invoice to general ledger:", error);
+    res.status(400).json({ error: error.message || "Failed to post invoice to ledger." });
+  }
+});
+
+// POST /api/invoices/:id/reject - Reject invoice
+app.post("/api/invoices/:id/reject", requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user as AuthUser;
+    const { id } = req.params;
+    const { reason } = req.body;
+    const tenantId = user.outlet_id || "DEFAULT-TENANT";
+
+    const rejected = await InvoiceEvidenceService.rejectInvoice(tenantId, id, user.name, reason || "Rejected by reviewer");
+    res.json({ success: true, invoice: rejected });
+  } catch (error: any) {
+    console.error("Error rejecting invoice:", error);
+    res.status(500).json({ error: error.message || "Failed to reject invoice." });
+  }
+});
+
+// POST /api/invoices/validate - Validate invoice data without saving
+app.post("/api/invoices/validate", requireAuth, (req, res) => {
+  try {
+    const validation = InvoiceValidator.validate(req.body);
+    res.json(validation);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Validation failed." });
+  }
+});
+
+// ---------------- CANONICAL 6-DIMENSIONAL CLASSIFICATION API ----------------
+
+// POST /api/classification/classify - Deterministic classification
+app.post("/api/classification/classify", requireAuth, (req, res) => {
+  try {
+    const classification = CanonicalClassificationEngine.classifyLine(req.body);
+    res.json(classification);
+  } catch (error: any) {
+    console.error("Classification error:", error);
+    res.status(500).json({ error: error.message || "Failed to classify line item." });
+  }
+});
+
+// POST /api/classification/suggest - AI/Heuristic classification suggestion
+app.post("/api/classification/suggest", requireAuth, async (req, res) => {
+  try {
+    const suggestion = await CanonicalClassificationEngine.suggestClassification(req.body);
+    res.json(suggestion);
+  } catch (error: any) {
+    console.error("Suggestion error:", error);
+    res.status(500).json({ error: error.message || "Failed to generate classification suggestion." });
+  }
+});
+
+// POST /api/classification/validate - Validate line classification consistency & high-risk status
+app.post("/api/classification/validate", requireAuth, (req, res) => {
+  try {
+    const { classification, input } = req.body;
+    const validation = CanonicalClassificationEngine.validateClassification(classification, input);
+    res.json(validation);
+  } catch (error: any) {
+    console.error("Classification validation error:", error);
+    res.status(500).json({ error: error.message || "Failed to validate classification." });
+  }
+});
+
+// POST /api/classification/approve - Approve a line classification by reviewer
+app.post("/api/classification/approve", requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user as AuthUser;
+    const { invoiceId, lineId, lineNumber, comments } = req.body;
+    const tenantId = user.outlet_id || "DEFAULT-TENANT";
+
+    const approved = await CanonicalClassificationEngine.approveClassification({
+      tenantId,
+      invoiceId,
+      lineId,
+      lineNumber,
+      approvedBy: user.name,
+      comments
+    });
+    res.json({ success: true, classification: approved });
+  } catch (error: any) {
+    console.error("Classification approval error:", error);
+    res.status(400).json({ error: error.message || "Failed to approve classification." });
+  }
+});
+
+// POST /api/classification/override - Apply human manual override
+app.post("/api/classification/override", requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user as AuthUser;
+    const { invoiceId, lineId, lineNumber, overrideValues, overrideReason } = req.body;
+    const tenantId = user.outlet_id || "DEFAULT-TENANT";
+
+    const result = await CanonicalClassificationEngine.overrideClassification({
+      tenantId,
+      invoiceId,
+      lineId,
+      lineNumber,
+      overrideValues,
+      overrideReason,
+      overriddenBy: user.name
+    });
+    res.json({ success: true, classification: result });
+  } catch (error: any) {
+    console.error("Classification override error:", error);
+    res.status(400).json({ error: error.message || "Failed to override classification." });
+  }
+});
+
+// ================= GST ENGINE & STATUTORY RETURNS (MIRA 205/206) =================
+
+// GET /api/gst/rates - Resolve effective GST rate and rule citation
+app.get("/api/gst/rates", requireAuth, (req, res) => {
+  try {
+    const date = (req.query.date as string) || new Date().toISOString().slice(0, 10);
+    const sector = ((req.query.sector as string)?.toUpperCase() === 'TOURISM' ? 'TOURISM' : 'GENERAL') as any;
+    const rateResolution = canonicalGstEngine.resolveGstRate(date, sector);
+    res.json({ success: true, rateResolution });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to resolve GST rate." });
+  }
+});
+
+// POST /api/gst/calculate - Calculate transaction GST and input eligibility
+app.post("/api/gst/calculate", requireAuth, (req, res) => {
+  try {
+    const { transactionDate, sector, taxableAmount, transactionType, treatment, isCapitalAsset, apportionmentRatio } = req.body;
+    const calculation = canonicalGstEngine.calculateTransactionGst({
+      transactionDate: transactionDate || new Date(),
+      sector: (sector?.toUpperCase() === 'TOURISM' ? 'TOURISM' : 'GENERAL'),
+      taxableAmount: Number(taxableAmount || 0),
+      transactionType: transactionType || 'OUTPUT_TAX',
+      treatment,
+      isCapitalAsset,
+      apportionmentRatio: apportionmentRatio !== undefined ? Number(apportionmentRatio) : undefined
+    });
+    res.json({ success: true, calculation });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to calculate GST." });
+  }
+});
+
+// POST /api/gst/mira205 - Generate official MIRA 205 General Sector Return
+app.post("/api/gst/mira205", requireAuth, (req, res) => {
+  try {
+    const { transactions, taxpayer, period, previousExcessCredit } = req.body;
+    const returnData = canonicalGstEngine.generateMira205Return({
+      transactions: transactions || [],
+      taxpayer: taxpayer || { tin: "1000000GST001", name: "Registered General Taxpayer" },
+      period: period || {
+        periodName: `${new Date().getFullYear()}-M01`,
+        startDate: `${new Date().getFullYear()}-01-01`,
+        endDate: `${new Date().getFullYear()}-01-31`,
+        taxYear: new Date().getFullYear()
+      },
+      previousExcessCredit: previousExcessCredit ? Number(previousExcessCredit) : 0
+    });
+    res.json({ success: true, mira205: returnData });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to generate MIRA 205 return." });
+  }
+});
+
+// POST /api/gst/mira206 - Generate official MIRA 206 Tourism Sector Return
+app.post("/api/gst/mira206", requireAuth, (req, res) => {
+  try {
+    const { transactions, taxpayer, period, previousExcessCredit } = req.body;
+    const returnData = canonicalGstEngine.generateMira206Return({
+      transactions: transactions || [],
+      taxpayer: taxpayer || {
+        tin: "2000000GST001",
+        name: "Registered Tourism Taxpayer",
+        tourismEstablishmentName: "Resort & Spa",
+        operatingLicenseNumber: "MOT-2025-001"
+      },
+      period: period || {
+        periodName: `${new Date().getFullYear()}-M01`,
+        startDate: `${new Date().getFullYear()}-01-01`,
+        endDate: `${new Date().getFullYear()}-01-31`,
+        taxYear: new Date().getFullYear()
+      },
+      previousExcessCredit: previousExcessCredit ? Number(previousExcessCredit) : 0
+    });
+    res.json({ success: true, mira206: returnData });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to generate MIRA 206 return." });
+  }
+});
+
+// POST /api/gst/reconciliation - Reconcile GST ledger to GL accounts
+app.post("/api/gst/reconciliation", requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user as AuthUser;
+    const { periodStart, periodEnd, sector } = req.body;
+    const tenantId = user.outlet_id || "DEFAULT-TENANT";
+
+    const reconciliation = await canonicalGstEngine.reconcileGstToGl({
+      tenantId,
+      periodStart: periodStart || `${new Date().getFullYear()}-01-01`,
+      periodEnd: periodEnd || `${new Date().getFullYear()}-01-31`,
+      sector: sector === 'TOURISM' ? 'TOURISM' : 'GENERAL'
+    });
+
+    res.json({ success: true, reconciliation });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to reconcile GST to GL." });
+  }
+});
+
+// ================= NON-RESIDENT WITHHOLDING TAX (NWT) & MIRA 602 =================
+
+// POST /api/nwt/calculate - Calculate Section 55 NWT liability
+app.post("/api/nwt/calculate", requireAuth, (req, res) => {
+  try {
+    const calculation = calculateNwt(req.body);
+    res.json({ success: true, calculation });
+  } catch (error: any) {
+    console.error("NWT calculation error:", error);
+    res.status(400).json({ error: error.message || "Failed to calculate NWT." });
+  }
+});
+
+// POST /api/nwt/mira602 - Generate official MIRA 602 Non-Resident Withholding Tax Return
+app.post("/api/nwt/mira602", requireAuth, (req, res) => {
+  try {
+    const { calculations, period, taxpayer } = req.body;
+    const nwtPeriod = period || buildNwtPeriod(new Date().getFullYear(), new Date().getMonth() + 1);
+    const nwtTaxpayer = taxpayer || {
+      tin: "1000200300",
+      businessName: "Registered Maldivian Taxpayer Entity"
+    };
+
+    const mira602 = generateMira602Return(calculations || [], nwtPeriod, nwtTaxpayer);
+    res.json({ success: true, mira602 });
+  } catch (error: any) {
+    console.error("MIRA 602 generation error:", error);
+    res.status(400).json({ error: error.message || "Failed to generate MIRA 602 return." });
+  }
+});
+
+// POST /api/nwt/reconciliation - Reconcile NWT Subledger to GL Account 2200
+app.post("/api/nwt/reconciliation", requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user as AuthUser;
+    const { calculations, period, glBalance } = req.body;
+    const nwtPeriod = period || buildNwtPeriod(new Date().getFullYear(), new Date().getMonth() + 1);
+    const tenantId = user.outlet_id || "DEFAULT-TENANT";
+
+    let balance = Number(glBalance);
+    if (isNaN(balance)) {
+      // Query GL Account 2200 (Withholding Tax Payable) from database if not explicitly passed
+      const glAccount = await prisma.account.findFirst({
+        where: { tenantId, accountCode: '2200' }
+      });
+      if (glAccount) {
+        const lines = await prisma.journalLine.findMany({
+          where: { accountId: glAccount.id }
+        });
+        balance = lines.reduce((acc, line) => acc + Number(line.credit) - Number(line.debit), 0);
+      } else {
+        balance = 0;
+      }
+    }
+
+    const reconciliation = reconcileNwtToGl(calculations || [], nwtPeriod, balance);
+    res.json({ success: true, reconciliation });
+  } catch (error: any) {
+    console.error("NWT reconciliation error:", error);
+    res.status(400).json({ error: error.message || "Failed to perform NWT reconciliation." });
+  }
+});
+
+// POST /api/nwt/validate-treaty - Validate Double Tax Avoidance Agreement (DTAA) Certificate
+app.post("/api/nwt/validate-treaty", requireAuth, (req, res) => {
+  try {
+    const { certificate, transactionDate } = req.body;
+    const date = transactionDate || new Date().toISOString().split("T")[0];
+    const validation = validateDtaaCertificate(certificate, date);
+    res.json({ success: true, validation });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to validate DTAA certificate." });
+  }
+});
+
+// ================= PHASE 26 — INCOME TAX ENGINE (SECTIONS 15, 16, 30, 50, 70) =================
+
+// GET /api/income-tax/rates - Resolve statutory income tax rules & brackets dynamically
+app.get("/api/income-tax/rates", requireAuth, (req, res) => {
+  try {
+    const taxpayerType = (req.query.taxpayerType as any) || "COMPANY";
+    const taxYear = req.query.taxYear ? Number(req.query.taxYear) : new Date().getFullYear();
+    const effectiveDate = `${taxYear}-12-31`;
+
+    const rules = defaultRuleResolver.resolveAllRules({
+      taxType: "INCOME_TAX",
+      taxpayerType,
+      transactionDate: effectiveDate
+    });
+
+    res.json({ success: true, taxYear, taxpayerType, rules });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to resolve income tax rules." });
+  }
+});
+
+// POST /api/income-tax/taxable-income - Calculate taxable income & loss relief
+app.post("/api/income-tax/taxable-income", requireAuth, (req, res) => {
+  try {
+    const calculation = defaultIncomeTaxEngine.calculateTaxableIncome(req.body);
+    res.json({ success: true, calculation });
+  } catch (error: any) {
+    console.error("Taxable income calculation error:", error);
+    res.status(400).json({ error: error.message || "Failed to calculate taxable income." });
+  }
+});
+
+// POST /api/income-tax/liability - Calculate progressive/corporate bracket tax liability
+app.post("/api/income-tax/liability", requireAuth, (req, res) => {
+  try {
+    const { netTaxableIncome, taxpayerType, taxYear, accountingDays, groupFactor, grossTaxableIncome } = req.body;
+    const liability = defaultIncomeTaxEngine.calculateTaxLiability(
+      Number(netTaxableIncome || 0),
+      taxpayerType || "COMPANY",
+      {
+        taxYear: taxYear ? Number(taxYear) : undefined,
+        accountingDays: accountingDays ? Number(accountingDays) : undefined,
+        groupFactor: groupFactor ? Number(groupFactor) : undefined,
+        grossTaxableIncome: grossTaxableIncome !== undefined ? Number(grossTaxableIncome) : undefined
+      }
+    );
+    res.json({ success: true, liability });
+  } catch (error: any) {
+    console.error("Tax liability calculation error:", error);
+    res.status(400).json({ error: error.message || "Failed to calculate tax liability." });
+  }
+});
+
+// POST /api/income-tax/calculate-final - Full end-to-end Income Tax computation
+app.post("/api/income-tax/calculate-final", requireAuth, (req, res) => {
+  try {
+    const result = defaultIncomeTaxEngine.calculateFinalTaxPayable(req.body);
+    res.json({ success: true, result });
+  } catch (error: any) {
+    console.error("Final income tax calculation error:", error);
+    res.status(400).json({ error: error.message || "Failed to calculate final income tax." });
+  }
+});
+
 // ---------------- EXCEL TEMPLATE & EXPORT ----------------
 
 app.get("/api/template/info", requireAuth, (_req, res) => {
@@ -2285,9 +3181,18 @@ app.get("/api/template/info", requireAuth, (_req, res) => {
   } as ExcelTemplateInfo);
 });
 
-app.post("/api/template/upload", requireAuth, upload.single("templateFile"), (req, res) => {
+app.post("/api/template/upload", requireAuth, requireSuperAdmin, uploadRateLimiter.middleware(), upload.single("templateFile"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No Excel file provided." });
+  }
+
+  // Validate Excel upload structure and magic bytes
+  const validation = UploadValidator.validateFile(req.file, TEMPLATE_UPLOAD_CONSTRAINTS);
+  if (!validation.isValid) {
+    if (req.file.path && fs.existsSync(req.file.path)) {
+      try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
+    }
+    return res.status(400).json({ error: validation.error });
   }
 
   try {
@@ -2779,6 +3684,7 @@ app.post("/api/assets/import-from-bills", requireAuth, (req, res) => {
 
   bills.forEach((b) => {
     if (b.status === "rejected") return;
+    if (user.role === "outlet_user" && b.outlet_id !== user.outlet_id) return;
     const data = b.verifiedData || b.extractedData;
 
     const isCapEx =
@@ -3140,16 +4046,217 @@ app.get("/api/tax-report/:year", requireAuth, (req, res) => {
   res.json(summary);
 });
 
-// Global Error Handler
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error("Express Error Handler:", err);
-  if (res.headersSent) return;
-  res.status(err.status || 500).json({
-    error: err.message || "An unexpected server error occurred."
+// Regulatory Snapshot & Regression Engine Endpoints (Phase 42)
+app.get("/api/regulatory/rules", requireAuth, (_req, res) => {
+  res.json({
+    count: SEEDED_REGULATORY_RULES.length,
+    rules: SEEDED_REGULATORY_RULES
   });
 });
 
-// Setup Vite Middleware / Static
+app.get("/api/regulatory/snapshot", requireAuth, (req, res) => {
+  const date = (req.query.date as string) || new Date().toISOString().slice(0, 10);
+  const snapshot = RegulatorySnapshotService.createSnapshot(date);
+  res.json(snapshot);
+});
+
+app.post("/api/regulatory/snapshots/compare", requireAuth, express.json(), (req, res) => {
+  const { baselineDate, targetDate } = req.body;
+  const base = RegulatorySnapshotService.createSnapshot(baselineDate || '2024-01-01');
+  const target = RegulatorySnapshotService.createSnapshot(targetDate || new Date().toISOString().slice(0, 10));
+  const report = RegulatorySnapshotService.compareSnapshots(base, target);
+  res.json(report);
+});
+
+app.get("/api/regulatory/regression/run", requireAuth, (_req, res) => {
+  const engine = new RegulatoryRegressionEngine();
+  const results = engine.runFullRegressionSuite();
+  res.json(results);
+});
+
+// ============================================================================
+// PHASE 43 — EXPLAINABLE TAX CALCULATION API ROUTES
+// ============================================================================
+
+// POST /api/tax/explain/income-tax - Compute Income Tax with 5-part Explainability Structure
+app.post("/api/tax/explain/income-tax", requireAuth, (req, res) => {
+  try {
+    const input = req.body;
+    const calcResult = defaultIncomeTaxEngine.calculateFinalTaxPayable(input);
+    const explanation = calcResult.explanation || defaultTaxExplainabilityEngine.generateIncomeTaxExplanation(input, calcResult);
+    res.json({
+      calculation: calcResult,
+      explanation
+    });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Error generating income tax explanation' });
+  }
+});
+
+// POST /api/tax/explain/gst - Compute GST with Deterministic Rule-Referenced Explanation
+app.post("/api/tax/explain/gst", requireAuth, (req, res) => {
+  try {
+    const input = req.body;
+    const explanation = defaultTaxExplainabilityEngine.generateGstExplanation(input);
+    res.json(explanation);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Error generating GST explanation' });
+  }
+});
+
+// POST /api/tax/explain/nwt - Compute Non-Resident Withholding Tax with Explainability
+app.post("/api/tax/explain/nwt", requireAuth, (req, res) => {
+  try {
+    const input = req.body;
+    const explanation = defaultTaxExplainabilityEngine.generateNwtExplanation(input);
+    res.json(explanation);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Error generating NWT explanation' });
+  }
+});
+
+// POST /api/tax/explain/verify - Verify mathematical exactness and audit rule references
+app.post("/api/tax/explain/verify", requireAuth, (req, res) => {
+  try {
+    const { explanation } = req.body;
+    if (!explanation) {
+      return res.status(400).json({ error: 'Missing explanation payload' });
+    }
+    const verification = defaultTaxExplainabilityEngine.verifyExplanation(explanation);
+    res.json(verification);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Error verifying explanation' });
+  }
+});
+
+// ============================================================================
+// PHASE 44 — TAX COMPLIANCE DASHBOARD API ROUTES
+// ============================================================================
+
+// GET /api/compliance/dashboard - Retrieve authoritative 8-dimension compliance status
+app.get("/api/compliance/dashboard", requireAuth, (req, res) => {
+  try {
+    const period = (req.query.period as string) || "ALL";
+    const outletId = (req.query.outletId as string) || "ALL";
+    const bills = getBills();
+    const outlets = getOutlets();
+    const assets = getAssets();
+    const revenueRecords = getRevenues();
+
+    const result = ComplianceDashboardService.evaluateCompliance({
+      period,
+      outletId,
+      bills,
+      outlets,
+      assets,
+      journals: [],
+      revenueRecords
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Error evaluating tax compliance dashboard' });
+  }
+});
+
+// POST /api/compliance/evaluate - Authoritative compliance evaluation on custom payload
+app.post("/api/compliance/evaluate", requireAuth, (req, res) => {
+  try {
+    const options = req.body || {};
+    const result = ComplianceDashboardService.evaluateCompliance(options);
+    res.json(result);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Error evaluating compliance' });
+  }
+});
+
+// ============================================================================
+// PHASE 45 — PRE-FILING CONTROL ENGINE API ROUTES
+// ============================================================================
+
+// POST /api/compliance/pre-filing/check - Run authoritative 14-check pre-filing control
+app.post("/api/compliance/pre-filing/check", requireAuth, (req, res) => {
+  try {
+    const body = req.body || {};
+    const period = body.period || (req.query.period as string) || "ALL";
+    const outletId = body.outletId || (req.query.outletId as string) || "ALL";
+
+    const bills = body.bills || getBills();
+    const assets = body.assets || getAssets();
+    const journals = body.journals || [];
+    const taxAdjustments = body.taxAdjustments || [];
+    const taxLossLots = body.taxLossLots || [];
+    const auditLogs = body.auditLogs || [];
+
+    const result = PreFilingControlEngine.runPreFilingCheck({
+      period,
+      outletId,
+      bills,
+      assets,
+      journals,
+      taxAdjustments,
+      taxLossLots,
+      auditLogs,
+      periodInfo: body.periodInfo || {
+        periodKey: period,
+        status: body.periodStatus || 'OPEN',
+        isApproved: body.periodApproved || false
+      },
+      periodStatus: body.periodStatus,
+      periodApproved: body.periodApproved,
+      trialBalance: body.trialBalance,
+      gstReconciliation: body.gstReconciliation,
+      nwtReconciliation: body.nwtReconciliation,
+      miraReturnValid: body.miraReturnValid,
+      approvals: body.approvals,
+      miraReturns: body.miraReturns,
+      schedules: body.schedules,
+      reconciliationResult: body.reconciliationResult,
+      options: body.options
+    });
+
+    res.json({ success: true, result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Error running pre-filing check' });
+  }
+});
+
+// POST /api/filing/package/ready-for-filing - Generate strictly validated ready-for-filing package (refuses if blocking issues exist)
+app.post("/api/filing/package/ready-for-filing", requireAuth, (req, res) => {
+  try {
+    const input = req.body;
+    if (!input || !input.taxpayer) {
+      return res.status(400).json({ success: false, error: "Missing required taxpayer profile in filing input" });
+    }
+
+    const packageResult = FilingPackageGenerator.generateReadyForFilingPackage({
+      ...input,
+      bills: input.bills || getBills(),
+      fixedAssets: input.fixedAssets || getAssets()
+    });
+
+    res.json({
+      success: true,
+      manifest: packageResult.manifest,
+      packageChecksum: packageResult.manifest.packageChecksum,
+      totalFiles: packageResult.manifest.totalFiles,
+      preFilingCheck: packageResult.manifest.preFilingCheck
+    });
+  } catch (error: any) {
+    if (error instanceof PreFilingBlockedError) {
+      return res.status(422).json({
+        success: false,
+        error: error.message,
+        blockingIssuesCount: error.preFilingResult.blockingIssues.length,
+        preFilingResult: error.preFilingResult
+      });
+    }
+    res.status(400).json({ success: false, error: error.message || 'Filing package generation failed' });
+  }
+});
+
+
+// Setup Vite Middleware / Static and Server Listening
 async function start() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -3160,13 +4267,16 @@ async function start() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    app.get("*", (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
+  // Centralized Production Error Handler
+  app.use(centralizedErrorHandler);
+
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Maldivian Multi-Outlet GST App server running on http://0.0.0.0:${PORT}`);
+    logger.info(`Maldivian Multi-Outlet GST App server running on http://0.0.0.0:${PORT}`);
   });
 }
 

@@ -238,3 +238,10 @@ export function calculateUnrealizedFxGainLoss(
     netUnrealizedGainLoss
   };
 }
+
+export {
+  ForeignExchangeEngine,
+  defaultForeignExchangeEngine,
+  STANDARD_FX_ACCOUNTS
+} from './foreignExchangeEngine';
+

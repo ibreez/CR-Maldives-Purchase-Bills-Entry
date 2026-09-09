@@ -1,0 +1,71 @@
+{
+  "caseId": "GOLDEN-015",
+  "caseNumber": 15,
+  "title": "Related-Party Transaction and Arm's Length Transfer Pricing Add-Back",
+  "description": "Management fee of MVR 80,000 paid to related entity where arm's length benchmark is MVR 50,000; non-arm's length MVR 30,000 added back under Section 27 ITA.",
+  "category": "TRANSFER_PRICING",
+  "regulatoryReferences": [
+    "Income Tax Act (Law No. 25/2019) Section 27 & Section 68 (Transfer Pricing & Arm's Length)",
+    "MIRA 604 Schedule 3 (Related Party Transactions)"
+  ],
+  "effectiveDate": "2026-09-30",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-015",
+      "tin": "1000015GST001",
+      "taxpayerName": "Pacific Holdings Maldives Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "document": {
+      "fileName": "parent_management_fee.pdf",
+      "documentType": "SUPPLIER_INVOICE",
+      "supplierName": "Pacific Group Regional HQ Singapore",
+      "invoiceNumber": "HQ-2026-09",
+      "issueDate": "2026-09-30",
+      "currency": "MVR",
+      "subtotal": 80000,
+      "gstAmount": 0,
+      "totalAmount": 80000
+    },
+    "relatedPartyData": {
+      "isRelatedParty": true,
+      "relationshipType": "PARENT_SUBSIDIARY",
+      "actualPricePaid": 80000,
+      "armsLengthPrice": 50000,
+      "adjustmentRequired": 30000
+    }
+  },
+  "expectedClassifications": {
+    "documentType": "SUPPLIER_INVOICE",
+    "accountingClassification": "EXPENSE",
+    "incomeTaxTreatment": "SPECIAL_TREATMENT"
+  },
+  "expectedCalculations": {
+    "totalExpenses": 80000,
+    "taxAdjustmentsAddBack": 30000,
+    "netTaxAdjustments": 30000,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_604",
+    "schedulesIncluded": [
+      "Schedule 3 - Related Party Transactions",
+      "Section C - Tax Adjustments"
+    ],
+    "boxValues": {
+      "sched3_related_party_payments": 80000,
+      "secC_transfer_pricing_addback": 30000
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "55cbabde477e7967400b46a0dc450b349506f9e243d396b67a646de24aabb567"
+}

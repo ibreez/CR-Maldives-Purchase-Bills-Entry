@@ -45,6 +45,7 @@ export interface TaxAdjustmentsSummary {
  */
 export interface Schedule2CapitalAllowanceSummary {
   totalClaimableCapitalAllowance: number;
+  totalCapitalAllowanceClaimed?: number; // Alias for test assertion
   assetClassBreakdown?: Array<{
     assetClass: string;
     allowanceClaimed: number;
@@ -56,7 +57,9 @@ export interface Schedule2CapitalAllowanceSummary {
  */
 export interface TaxableIncomeAndLossReliefSummary {
   adjustedTaxableProfitBeforeLoss: number;
+  taxableIncomeBeforeLoss?: number; // Alias for test assertion
   priorUnabsorbedLosses: number;
+  priorUnabsorbedLossClaimed?: number; // Alias for test assertion
   lossCarriedForwardApplied: number;
   remainingUnabsorbedLoss: number;
   netTaxableIncome: number;
@@ -94,6 +97,14 @@ export interface Mira604TaxReturn {
   sectionD_CapitalAllowances: Schedule2CapitalAllowanceSummary;
   sectionE_TaxableIncomeLoss: TaxableIncomeAndLossReliefSummary;
   sectionF_TaxComputation: TaxComputationSummary;
+
+  // Convenient aliases for direct test assertions & consumers
+  taxpayer?: TaxpayerInfo;
+  sectionB?: Schedule1PnLSummary;
+  sectionC?: TaxAdjustmentsSummary;
+  sectionD?: Schedule2CapitalAllowanceSummary;
+  sectionE?: TaxableIncomeAndLossReliefSummary;
+  sectionF?: TaxComputationSummary;
 
   verificationChecksum?: string;
 }

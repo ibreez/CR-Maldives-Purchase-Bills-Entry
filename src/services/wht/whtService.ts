@@ -121,7 +121,7 @@ export function calculateTransactionWht(
 
   const netAmountPaidToVendor = grossPaymentAmount - whtAmountWithheld;
 
-  const payeeName = activePayee?.payeeName || (transaction as unknown as { vendorName?: string })?.vendorName || 'Foreign Non-Resident Vendor';
+  const payeeName = activePayee?.payeeName || (transaction as any)?.supplierOrCustomer || (transaction as any)?.vendorName || (transaction as any)?.supplierName || 'Foreign Non-Resident Vendor';
   const countryCode = activePayee?.countryCode || 'US';
   const foreignAddress = activePayee?.foreignAddress || 'International Address';
 
@@ -200,7 +200,7 @@ export function generateMira302Return(
   let totalNetPayments = 0;
 
   for (const tx of txList) {
-    const txVendor = (tx as unknown as { vendorName?: string })?.vendorName || '';
+    const txVendor = (tx as any).supplierOrCustomer || (tx as any).vendorName || (tx as any).supplierName || '';
     const matchedPayee = payeeMap[txVendor.toLowerCase()] || payeeMap[tx.entityId];
 
     const isGrossedUp = options?.globalGrossUp !== undefined
@@ -226,15 +226,26 @@ export function generateMira302Return(
   const timestamp = new Date().toISOString();
   const checksum = `MIRA302-CHK-${period.taxYear}-${cleanPeriodId}-${Math.abs(Math.round(totalWhtWithheld))}`;
 
+  const payeeSchedule = scheduleOfPayments.map(item => ({
+    payeeName: item.payeeName,
+    grossAmount: item.grossPaymentAmount,
+    whtRate: item.whtRatePercentage,
+    taxWithheld: item.whtAmountWithheld,
+    netPaid: item.netAmountPaidToVendor
+  }));
+
   return {
     formId,
     formVersion: 'V25.1',
     submissionStatus: 'READY_FOR_FILING',
     generatedAt: timestamp,
     whtPeriod: period,
+    period,
     scheduleOfPayments,
+    payeeSchedule,
     totalGrossPayments,
     totalWhtWithheld,
+    totalTaxWithheld: totalWhtWithheld,
     totalNetPayments,
     itemCount: scheduleOfPayments.length,
     verificationChecksum: checksum
@@ -250,3 +261,7 @@ export function generateMira302Return(
 export function exportMira302Json(whtReturn: Mira302WhtReturn): string {
   return JSON.stringify(whtReturn, null, 2);
 }
+
+// Re-export Phase 25 NWT Engine & MIRA 602 services for canonical access
+export * from './nwtEngineService';
+

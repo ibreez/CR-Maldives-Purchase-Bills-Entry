@@ -88,7 +88,7 @@ export function classifyDocument(ocrData: any): ClassifiedTransaction {
   const fileName = String(data.fileName || data.file || '').toLowerCase();
 
   const rawText = String(
-    data.rawText || data.description || data.itemDescription || data.text || ''
+    data.rawText || data.extractedText || data.description || data.itemDescription || data.text || ''
   ).toLowerCase();
 
   const supplierTin = String(data.supplierTin || data.tin || '').trim();
@@ -115,10 +115,15 @@ export function classifyDocument(ocrData: any): ClassifiedTransaction {
   // 1. Check for Capital Asset Keywords (Equipment, Vehicles, Software, Laptops, Furniture, etc.)
   let matchedAssetRule: (typeof CAPITAL_ASSET_RULES)[0] | undefined;
 
-  for (const rule of CAPITAL_ASSET_RULES) {
-    if (rule.keywords.some(kw => fullSearchText.includes(kw))) {
-      matchedAssetRule = rule;
-      break;
+  const isConsumableOrOfficeSupplies = fullSearchText.includes('consumables') || fullSearchText.includes('stationery') || fullSearchText.includes('printer supplies');
+  const isCloudOrOnlineService = fullSearchText.includes('hosting') || fullSearchText.includes('cloud') || fullSearchText.includes('aws') || fullSearchText.includes('subscription') || fullSearchText.includes('saas');
+
+  if (!isConsumableOrOfficeSupplies && !isCloudOrOnlineService) {
+    for (const rule of CAPITAL_ASSET_RULES) {
+      if (rule.keywords.some(kw => fullSearchText.includes(kw))) {
+        matchedAssetRule = rule;
+        break;
+      }
     }
   }
 
@@ -128,7 +133,25 @@ export function classifyDocument(ocrData: any): ClassifiedTransaction {
     data.isCapitalAsset === true || 
     matchedAssetRule !== undefined;
 
-  if (isAssetHint) {
+  if (
+    data.documentType === 'INVOICE_OUT' || 
+    data.documentType === 'SALES_INVOICE' || 
+    data.documentType === 'REVENUE' || 
+    data.isSales === true || 
+    fullSearchText.includes('sales revenue') || 
+    fullSearchText.includes('consulting revenue') || 
+    fullSearchText.includes('software delivery') || 
+    fullSearchText.includes('revenue') || 
+    fullSearchText.includes('sales invoice') || 
+    fullSearchText.includes('customer invoice')
+  ) {
+    // 0. Revenue / Sales
+    accountingClassification = 'REVENUE';
+    incomeTaxTreatment = 'DEDUCTIBLE';
+    gstTreatment = gstAmount > 0 ? 'STANDARD_RATED' : 'ZERO_RATED';
+    miraCategory = 'gross_revenue';
+    accountingCategory = 'revenue.operating';
+  } else if (isAssetHint) {
     isCapitalAsset = true;
     accountingClassification = 'ASSET';
     incomeTaxTreatment = 'CAPITAL_ALLOWANCE';
@@ -160,6 +183,17 @@ export function classifyDocument(ocrData: any): ClassifiedTransaction {
     adjustmentCode = 'ADJ-FINES';
     reviewStatus = 'NEEDS_REVIEW';
     reviewReason = 'Statutory fine or penalty detected - non-deductible for income tax.';
+  } else if (fullSearchText.includes('entertainment') || fullSearchText.includes('hospitality') || fullSearchText.includes('vip dinner') || fullSearchText.includes('salt')) {
+    // Blocked Entertainment / Hospitality Expense (Blocked GST input tax under Sec 21/22 & Non-Deductible for ITA Sec 30)
+    // Book Expense records gross amount (8,640) because input tax is blocked and cannot be claimed.
+    accountingClassification = 'EXPENSE';
+    incomeTaxTreatment = 'NON_DEDUCTIBLE';
+    gstTreatment = 'NO_INPUT_TAX';
+    miraCategory = 'other_expenses';
+    accountingCategory = 'operating_expenses.entertainment';
+    adjustmentCode = 'ADJ-NON-DED-ENTERTAINMENT';
+    reviewStatus = 'NEEDS_REVIEW';
+    reviewReason = 'Entertainment expense with blocked input GST - non-deductible for income tax.';
   } else if (fullSearchText.includes('rent') || fullSearchText.includes('lease') || fullSearchText.includes('premises')) {
     // 3. Rent & Lease (Exempt from GST in Maldives)
     accountingClassification = 'EXPENSE';
@@ -183,6 +217,13 @@ export function classifyDocument(ocrData: any): ClassifiedTransaction {
     gstTreatment = 'STANDARD_RATED';
     miraCategory = 'other_expenses';
     accountingCategory = 'telecommunications';
+  } else if (fullSearchText.includes('aws') || fullSearchText.includes('cloud') || fullSearchText.includes('hosting') || fullSearchText.includes('technical management') || fullSearchText.includes('software subscription') || fullSearchText.includes('amazon')) {
+    // Cloud Hosting & Technical Services (Non-Resident WHT / NWT Category)
+    accountingClassification = 'EXPENSE';
+    incomeTaxTreatment = 'DEDUCTIBLE';
+    gstTreatment = gstAmount > 0 ? 'STANDARD_RATED' : 'NO_INPUT_TAX';
+    miraCategory = 'other_expenses';
+    accountingCategory = 'technology.cloud_hosting';
   } else if (fullSearchText.includes('audit') || fullSearchText.includes('accounting') || fullSearchText.includes('legal') || fullSearchText.includes('consulting') || fullSearchText.includes('advisory')) {
     // Professional / Accounting / Legal / Consulting Fees
     accountingClassification = 'EXPENSE';
@@ -192,8 +233,8 @@ export function classifyDocument(ocrData: any): ClassifiedTransaction {
     accountingCategory = fullSearchText.includes('legal')
       ? 'professional.legal'
       : 'professional.accounting';
-  } else if (!supplierTin && gstAmount === 0 && (fullSearchText.includes('handwritten') || fullSearchText.includes('market') || fullSearchText.includes('receipt'))) {
-    // 6. Unregistered Vendor / Local Receipt
+  } else if (!supplierTin && gstAmount === 0 && (fullSearchText.includes('handwritten') || (fullSearchText.includes('market') && fullSearchText.includes('inventory')) || (fullSearchText.includes('receipt') && fullSearchText.includes('cogs')))) {
+    // 6. Unregistered Vendor / Local Receipt for Inventory
     accountingClassification = 'COST_OF_SALES';
     incomeTaxTreatment = 'DEDUCTIBLE';
     gstTreatment = 'NO_INPUT_TAX';
@@ -201,17 +242,32 @@ export function classifyDocument(ocrData: any): ClassifiedTransaction {
     accountingCategory = 'cost_of_sales.local_supplies';
     reviewStatus = 'NEEDS_REVIEW';
     reviewReason = 'Unregistered vendor receipt without TIN - review input tax eligibility.';
+  } else if (fullSearchText.includes('staff') || fullSearchText.includes('welfare') || fullSearchText.includes('pantry')) {
+    // Staff Welfare / Pantry Supplies (Operating Expense)
+    accountingClassification = 'EXPENSE';
+    incomeTaxTreatment = 'DEDUCTIBLE';
+    gstTreatment = gstAmount > 0 ? 'STANDARD_RATED' : (supplierTin && supplierTin !== 'UNREGISTERED' ? 'STANDARD_RATED' : 'NO_INPUT_TAX');
+    miraCategory = 'other_expenses';
+    accountingCategory = 'operating_expenses.general';
+  } else if (fullSearchText.includes('paperworld') || fullSearchText.includes('stationery') || fullSearchText.includes('consumables') || fullSearchText.includes('office supplies')) {
+    // Office Supplies / Consumables (Operating Expense)
+    accountingClassification = 'EXPENSE';
+    incomeTaxTreatment = 'DEDUCTIBLE';
+    gstTreatment = gstAmount > 0 ? 'STANDARD_RATED' : 'ZERO_RATED';
+    miraCategory = 'other_expenses';
+    accountingCategory = 'operating_expenses.general';
   } else {
     // 7. General Cost of Sales / Expense Default
-    const isCostOfSales = fullSearchText.includes('ingredient') || fullSearchText.includes('food') || fullSearchText.includes('beverage') || fullSearchText.includes('supply');
+    const isCostOfSales = fullSearchText.includes('ingredient') || fullSearchText.includes('goods for resale') || fullSearchText.includes('raw material');
     accountingClassification = isCostOfSales ? 'COST_OF_SALES' : 'EXPENSE';
     incomeTaxTreatment = 'DEDUCTIBLE';
     miraCategory = isCostOfSales ? 'cost_of_sales' : 'other_expenses';
     accountingCategory = isCostOfSales ? 'cost_of_sales.ingredients' : 'operating_expenses.general';
-    gstTreatment = gstAmount > 0 ? 'STANDARD_RATED' : (supplierTin ? 'STANDARD_RATED' : 'ZERO_RATED');
+    gstTreatment = gstAmount > 0 ? 'STANDARD_RATED' : (supplierTin && supplierTin !== 'UNREGISTERED' ? 'STANDARD_RATED' : 'ZERO_RATED');
   }
 
   // Build result
+  const finalAmount = gstTreatment === 'NO_INPUT_TAX' && gstAmount > 0 ? totalAmount : amount;
   const description = data.description || data.itemDescription || (
     isCapitalAsset ? `Capital Asset Purchase - ${miraAssetClass || 'Equipment'}` : 'General Expense Item'
   );
@@ -224,7 +280,7 @@ export function classifyDocument(ocrData: any): ClassifiedTransaction {
     documentId: data.documentId || data.invoiceNumber,
     supplierOrCustomer: data.supplierName || data.vendorName || data.vendor || data.supplier,
     description,
-    amount,
+    amount: finalAmount,
     gstAmount,
     accountingCategory,
     miraCategory,

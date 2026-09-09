@@ -1,0 +1,66 @@
+{
+  "caseId": "GOLDEN-011",
+  "caseNumber": 11,
+  "title": "Double Tax Avoidance Agreement (DTAA) Treaty Relief Exemption",
+  "description": "Payment to UAE tax resident possessing verified Tax Residency Certificate (TRC) exempt from domestic withholding under bilateral tax treaty.",
+  "category": "NWT",
+  "regulatoryReferences": [
+    "Maldives-UAE Double Taxation Avoidance Agreement Article 12",
+    "Income Tax Act (Law No. 25/2019) Section 55 & Section 71 (Treaty Primacy)"
+  ],
+  "effectiveDate": "2026-08-01",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-011",
+      "tin": "1000011GST001",
+      "taxpayerName": "Emirates-Maldives Hospitality Group Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "TOURISM",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "document": {
+      "fileName": "uae_royalty_invoice_trc.pdf",
+      "documentType": "SUPPLIER_INVOICE",
+      "supplierName": "Gulf Hospitality Holdings FZE",
+      "invoiceNumber": "GULF-2026-112",
+      "issueDate": "2026-08-01",
+      "currency": "MVR",
+      "subtotal": 100000,
+      "gstAmount": 0,
+      "totalAmount": 100000
+    },
+    "parameters": {
+      "hasValidTRC": true,
+      "treatyCountry": "UAE",
+      "treatyRate": 0
+    }
+  },
+  "expectedClassifications": {
+    "documentType": "SUPPLIER_INVOICE",
+    "accountingClassification": "EXPENSE",
+    "incomeTaxTreatment": "DEDUCTIBLE"
+  },
+  "expectedCalculations": {
+    "whtGrossAmount": 100000,
+    "whtRate": 0,
+    "whtAmountWithheld": 0,
+    "whtNetAmountPaid": 100000,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_302",
+    "boxValues": {
+      "treaty_exempt_gross_payments": 100000,
+      "tax_withheld": 0
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "8520bdc958ec97ca5f6ec6360e4e5585025c25c4a2f6b8ad447160029b2d60bd"
+}

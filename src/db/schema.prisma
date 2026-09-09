@@ -7,11 +7,16 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum Role {
-  CLIENT_USER
-  STAFF_ACCOUNTANT
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+
+enum SystemRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
   TAX_MANAGER
-  CLIENT_ADMIN
+  STAFF_ACCOUNTANT
+  OUTLET_USER
   AUDITOR
 }
 
@@ -23,6 +28,7 @@ enum ReturnType {
 
 enum SubmissionStatus {
   DRAFT
+  PENDING_REVIEW
   READY_FOR_FILING
   SUBMITTED
   PROCESSING
@@ -37,36 +43,777 @@ enum ApprovalStatus {
   REJECTED
 }
 
+// -----------------------------------------------------------------------------
+// CORE IDENTITY & MULTI-TENANCY
+// -----------------------------------------------------------------------------
+
 model Tenant {
-  id        String   @id
+  id        String   @id @default(uuid())
   name      String
   tin       String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
+  users               User[]
+  userTenants         UserTenant[]
+  taxpayers           Taxpayer[]
+  suppliers           Supplier[]
+  customers           Customer[]
+  documents           Document[]
+  invoices            Invoice[]
+  accounts            Account[]
+  accountingPeriods   AccountingPeriod[]
+  journals            Journal[]
+  gstTransactions     GSTTransaction[]
+  gstPeriods          GSTPeriod[]
+  nwtTransactions     NWTTransaction[]
+  nwtPeriods          NWTPeriod[]
+  fixedAssets         FixedAsset[]
+  taxAdjustments      TaxAdjustment[]
+  taxLosses           TaxLoss[]
+  taxCalculations     TaxCalculation[]
+  miraReturns         MIRAReturn[]
+  reconciliations     Reconciliation[]
+  approvals           Approval[]
+  auditEvents         AuditEvent[]
+  periodLocks         PeriodLock[]
+  transactions        Transaction[]
+  journalEntries      JournalEntry[]
+  legacyFixedAssets   LegacyFixedAsset[]
+  legacyTaxReturns    TaxReturn[]
+  ocrFieldEvidences   OCRFieldEvidence[]
 
   @@index([tin])
 }
 
 model User {
-  id               String   @id
+  id               String   @id @default(uuid())
   email            String   @unique
   name             String
-  role             Role
+  roleId           String?
   tenantId         String
   assignedEntities String[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role        Role?        @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  userTenants UserTenant[]
+  permissions Permission[]
+  auditEvents AuditEvent[]
+
+  @@index([tenantId])
+  @@index([roleId])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  permissions Permission[]
+}
+
+model Permission {
+  id        String   @id @default(uuid())
+  roleId    String?
+  userId    String?
+  action    String
+  resource  String
+  createdAt DateTime @default(now())
+
+  role Role? @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([roleId])
+  @@index([userId])
+}
+
+model UserTenant {
+  id         String   @id @default(uuid())
+  userId     String
+  tenantId   String
+  assignedAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([userId])
+  @@index([tenantId])
+}
+
+// -----------------------------------------------------------------------------
+// TAXPAYER & REGISTRATIONS
+// -----------------------------------------------------------------------------
+
+model Taxpayer {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tin          String   @unique
+  businessName String
+  taxpayerType String   // e.g. 'COMPANY', 'SOLE_PROPRIETOR', 'INDIVIDUAL'
+  sector       String   @default("GENERAL") // e.g. 'GENERAL', 'TOURISM'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  registrations TaxRegistration[]
+  taxPeriods    TaxPeriod[]
+  documents     Document[]
+  invoices      Invoice[]
+
+  @@index([tenantId])
+  @@index([tin])
+}
+
+model TaxRegistration {
+  id                 String    @id @default(uuid())
+  taxpayerId         String
+  taxType            String    // 'GST', 'INCOME_TAX', 'NWT'
+  registrationNumber String
+  effectiveFrom      DateTime
+  effectiveTo        DateTime?
+  status             String    @default("ACTIVE") // 'ACTIVE', 'CANCELLED'
+  createdAt          DateTime  @default(now())
+
+  taxpayer Taxpayer @relation(fields: [taxpayerId], references: [id], onDelete: Cascade)
+
+  @@index([taxpayerId])
+  @@index([taxType])
+}
+
+model TaxPeriod {
+  id         String   @id @default(uuid())
+  taxpayerId String
+  taxType    String   // 'GST', 'INCOME_TAX', 'NWT'
+  periodName String   // e.g. '2026-Q1', '2026'
+  startDate  DateTime
+  endDate    DateTime
+  taxYear    Int
+  isClosed   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  taxpayer    Taxpayer     @relation(fields: [taxpayerId], references: [id], onDelete: Cascade)
+  gstPeriods  GSTPeriod[]
+  nwtPeriods  NWTPeriod[]
+  miraReturns MIRAReturn[]
+
+  @@index([taxpayerId])
+  @@index([taxType])
+  @@index([taxYear])
+}
+
+// -----------------------------------------------------------------------------
+// COUNTERPARTIES
+// -----------------------------------------------------------------------------
+
+model Supplier {
+  id              String   @id @default(uuid())
+  tenantId        String
+  name            String
+  tin             String?
+  isRegisteredGst Boolean  @default(false)
+  country         String   @default("MV")
+  isNonResident   Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices  Invoice[]
+  documents Document[]
+
+  @@index([tenantId])
+  @@index([tin])
+}
+
+model Customer {
+  id              String   @id @default(uuid())
+  tenantId        String
+  name            String
+  tin             String?
+  isRegisteredGst Boolean  @default(false)
+  country         String   @default("MV")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+
+  @@index([tenantId])
+  @@index([tin])
+}
+
+// -----------------------------------------------------------------------------
+// DOCUMENTS & INVOICES
+// -----------------------------------------------------------------------------
+
+model Document {
+  id            String   @id @default(uuid())
+  tenantId      String
+  taxpayerId    String?
+  supplierId    String?
+  fileName      String
+  fileUrl       String
+  fileType      String
+  ocrStatus      String   @default("PENDING") // 'PENDING', 'PROCESSED', 'FAILED'
+  extractedData String?  // Raw JSON string
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taxpayer Taxpayer?         @relation(fields: [taxpayerId], references: [id], onDelete: SetNull)
+  supplier Supplier?         @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  versions       DocumentVersion[]
+  invoices       Invoice[]
+  fieldEvidences OCRFieldEvidence[]
+
+  @@index([tenantId])
+  @@index([taxpayerId])
+  @@index([supplierId])
+}
+
+model DocumentVersion {
+  id            String   @id @default(uuid())
+  documentId    String
+  versionNumber Int
+  fileUrl       String
+  changeSummary String?
+  createdAt     DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  tenantId      String
+  taxpayerId    String?
+  documentId    String?
+  supplierId    String?
+  customerId    String?
+  invoiceNumber String
+  invoiceDate   DateTime
+  invoiceType   String   // 'PURCHASE', 'SALES'
+  currency      String   @default("MVR")
+  exchangeRate  Decimal  @default(1.0000) @db.Decimal(18, 4)
+  taxableAmount Decimal  @db.Decimal(18, 4)
+  gstAmount     Decimal  @db.Decimal(18, 4)
+  totalAmount   Decimal  @db.Decimal(18, 4)
+  status        String   @default("DRAFT") // 'DRAFT', 'POSTED', 'PAID', 'CANCELLED'
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taxpayer        Taxpayer?          @relation(fields: [taxpayerId], references: [id], onDelete: SetNull)
+  document        Document?          @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  supplier        Supplier?          @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  customer        Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  lines           InvoiceLine[]
+  gstTransactions GSTTransaction[]
+  fieldEvidences  OCRFieldEvidence[]
+
+  @@index([tenantId])
+  @@index([taxpayerId])
+  @@index([invoiceNumber])
+  @@index([invoiceDate])
+  @@index([tenantId, invoiceDate])
+  @@index([tenantId, status])
+}
+
+model InvoiceLine {
+  id                          String    @id @default(uuid())
+  invoiceId                   String
+  lineNumber                  Int
+  description                 String
+  quantity                    Decimal   @db.Decimal(18, 4)
+  unitPrice                   Decimal   @db.Decimal(18, 4)
+  taxableAmount               Decimal   @db.Decimal(18, 4)
+  gstRate                     Decimal   @db.Decimal(5, 4)
+  gstAmount                   Decimal   @db.Decimal(18, 4)
+  totalAmount                 Decimal   @db.Decimal(18, 4)
+  accountingClassification    String?
+  gstClassification           String?
+  incomeTaxClassification     String?
+  nwtClassification           String?
+  assetClassification         String?
+  miraReportingClassification String?
+  ruleId                      String?
+  regulatoryVersion           String?
+  classificationReason        String?
+  confidence                  Decimal?  @db.Decimal(5, 2)
+  source                      String?
+  requiresReview              Boolean   @default(false)
+  isApproved                  Boolean   @default(false)
+  reviewer                    String?
+  reviewedAt                  DateTime?
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([invoiceId, lineNumber])
+}
+
+// -----------------------------------------------------------------------------
+// ACCOUNTING CORE & GENERAL LEDGER
+// -----------------------------------------------------------------------------
+
+model Account {
+  id           String   @id @default(uuid())
+  tenantId     String
+  accountCode  String
+  accountName  String
+  accountType  String   // 'ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'
+  miraCategory String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  journalLines JournalLine[]
+
+  @@unique([tenantId, accountCode])
+  @@index([tenantId])
+  @@index([accountCode])
+}
+
+model AccountingPeriod {
+  id         String   @id @default(uuid())
+  tenantId   String
+  periodName String
+  startDate  DateTime
+  endDate    DateTime
+  isClosed   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  journals Journal[]
+
+  @@index([tenantId])
+  @@index([startDate, endDate])
+}
+
+model Journal {
+  id                 String   @id @default(uuid())
+  tenantId           String
+  accountingPeriodId String?
+  entryDate          DateTime
+  reference          String?
+  description        String
+  totalDebit         Decimal  @db.Decimal(18, 4)
+  totalCredit        Decimal  @db.Decimal(18, 4)
+  isBalanced         Boolean  @default(true)
+  status             String   @default("POSTED") // 'DRAFT', 'POSTED', 'REVERSED'
+  createdAt          DateTime @default(now())
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  accountingPeriod AccountingPeriod? @relation(fields: [accountingPeriodId], references: [id], onDelete: SetNull)
+  lines            JournalLine[]
+
+  @@index([tenantId])
+  @@index([entryDate])
+  @@index([tenantId, status, entryDate])
+  @@index([tenantId, reference])
+}
+
+model JournalLine {
+  id          String   @id @default(uuid())
+  journalId   String
+  accountId   String?
+  accountCode String
+  accountName String
+  debit       Decimal  @db.Decimal(18, 4)
+  credit      Decimal  @db.Decimal(18, 4)
+  description String?
+
+  journal Journal  @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([journalId])
+  @@index([accountId])
+  @@index([accountCode])
+  @@index([journalId, accountCode])
+}
+
+// -----------------------------------------------------------------------------
+// GST & WITHHOLDING TAX (NWT)
+// -----------------------------------------------------------------------------
+
+model GSTTransaction {
+  id                  String   @id @default(uuid())
+  tenantId            String
+  invoiceId           String?
+  gstPeriodId         String?
+  transactionDate     DateTime
+  sector              String   // 'GENERAL', 'TOURISM'
+  taxableAmount       Decimal  @db.Decimal(18, 4)
+  gstRate             Decimal  @db.Decimal(5, 4)
+  gstAmount           Decimal  @db.Decimal(18, 4)
+  isInputTaxClaimable Boolean  @default(true)
+  createdAt           DateTime @default(now())
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice   Invoice?   @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  gstPeriod GSTPeriod? @relation(fields: [gstPeriodId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([transactionDate])
+  @@index([gstPeriodId])
+  @@index([tenantId, sector, transactionDate])
+}
+
+model GSTPeriod {
+  id             String   @id @default(uuid())
+  tenantId       String
+  taxPeriodId    String?
+  periodName     String   // e.g. '2026-M01'
+  startDate      DateTime
+  endDate        DateTime
+  totalOutputTax Decimal  @db.Decimal(18, 4)
+  totalInputTax  Decimal  @db.Decimal(18, 4)
+  netGstPayable  Decimal  @db.Decimal(18, 4)
+  status         String   @default("OPEN") // 'OPEN', 'FILED'
+  createdAt      DateTime @default(now())
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taxPeriod       TaxPeriod?       @relation(fields: [taxPeriodId], references: [id], onDelete: SetNull)
+  gstTransactions GSTTransaction[]
+
+  @@index([tenantId])
+  @@index([startDate, endDate])
+}
+
+model NWTTransaction {
+  id              String   @id @default(uuid())
+  tenantId        String
+  nwtPeriodId     String?
+  transactionDate DateTime
+  payeeName       String
+  category        String   // e.g. 'ROYALTY', 'NON_RESIDENT_CONTRACTOR'
+  grossAmount     Decimal  @db.Decimal(18, 4)
+  nwtRate         Decimal  @db.Decimal(5, 4)
+  nwtAmount       Decimal  @db.Decimal(18, 4)
+  createdAt       DateTime @default(now())
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  nwtPeriod NWTPeriod? @relation(fields: [nwtPeriodId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([transactionDate])
+  @@index([nwtPeriodId])
+  @@index([tenantId, transactionDate])
+}
+
+model NWTPeriod {
+  id               String   @id @default(uuid())
+  tenantId         String
+  taxPeriodId      String?
+  periodName       String
+  startDate        DateTime
+  endDate          DateTime
+  totalGross       Decimal  @db.Decimal(18, 4)
+  totalNwtWithheld Decimal  @db.Decimal(18, 4)
+  status           String   @default("OPEN")
+  createdAt        DateTime @default(now())
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taxPeriod       TaxPeriod?       @relation(fields: [taxPeriodId], references: [id], onDelete: SetNull)
+  nwtTransactions NWTTransaction[]
+
+  @@index([tenantId])
+  @@index([startDate, endDate])
+}
+
+// -----------------------------------------------------------------------------
+// FIXED ASSETS & CAPITAL ALLOWANCE
+// -----------------------------------------------------------------------------
+
+model FixedAsset {
+  id                   String   @id @default(uuid())
+  tenantId             String
+  assetName            String
+  assetClass           String
+  acquisitionDate       DateTime
+  costPrice            Decimal  @db.Decimal(18, 4)
+  salvageValue         Decimal? @db.Decimal(18, 4)
+  capitalAllowanceRate Decimal  @db.Decimal(5, 4)
+  openingWDV           Decimal  @db.Decimal(18, 4)
+  closingWDV           Decimal  @db.Decimal(18, 4)
+  taxYear              Int
+  isDisposed           Boolean  @default(false)
+  createdAt            DateTime @default(now())
+
+  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  movements FixedAssetMovement[]
+
+  @@index([tenantId])
+  @@index([taxYear])
+  @@index([assetClass])
+}
+
+model FixedAssetMovement {
+  id           String   @id @default(uuid())
+  fixedAssetId String
+  movementType String   // 'ADDITION', 'DISPOSAL', 'DEPRECIATION', 'REVALUATION'
+  movementDate DateTime
+  amount       Decimal  @db.Decimal(18, 4)
+  description  String?
+  createdAt    DateTime @default(now())
+
+  fixedAsset FixedAsset @relation(fields: [fixedAssetId], references: [id], onDelete: Cascade)
+
+  @@index([fixedAssetId])
+}
+
+// -----------------------------------------------------------------------------
+// INCOME TAX, LOSSES & ADJUSTMENTS
+// -----------------------------------------------------------------------------
+
+model TaxAdjustment {
+  id             String   @id @default(uuid())
+  tenantId       String
+  taxYear        Int
+  adjustmentCode String
+  direction      String   // 'ADDITION', 'DEDUCTION'
+  amount         Decimal  @db.Decimal(18, 4)
+  description    String
+  createdAt      DateTime @default(now())
+
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
-  @@index([role])
+  @@index([taxYear])
 }
+
+model TaxLoss {
+  id                   String   @id @default(uuid())
+  tenantId             String
+  taxYearIncurred      Int
+  initialLossAmount    Decimal  @db.Decimal(18, 4)
+  remainingLossAmount Decimal  @db.Decimal(18, 4)
+  expiryTaxYear        Int?
+  createdAt            DateTime @default(now())
+
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  utilisations TaxLossUtilisation[]
+
+  @@index([tenantId])
+  @@index([taxYearIncurred])
+}
+
+model TaxLossUtilisation {
+  id              String   @id @default(uuid())
+  taxLossId       String
+  taxYearUtilised Int
+  utilisedAmount  Decimal  @db.Decimal(18, 4)
+  createdAt       DateTime @default(now())
+
+  taxLoss TaxLoss @relation(fields: [taxLossId], references: [id], onDelete: Cascade)
+
+  @@index([taxLossId])
+  @@index([taxYearUtilised])
+}
+
+model TaxCalculation {
+  id                String   @id @default(uuid())
+  tenantId          String
+  taxYear           Int
+  accountingProfit Decimal  @db.Decimal(18, 4)
+  totalAdditions    Decimal  @db.Decimal(18, 4)
+  totalDeductions   Decimal  @db.Decimal(18, 4)
+  taxableIncome     Decimal  @db.Decimal(18, 4)
+  taxPayable        Decimal  @db.Decimal(18, 4)
+  createdAt         DateTime @default(now())
+
+  tenant Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lines  TaxCalculationLine[]
+
+  @@index([tenantId])
+  @@index([taxYear])
+}
+
+model TaxCalculationLine {
+  id               String  @id @default(uuid())
+  taxCalculationId String
+  lineCode         String
+  description      String
+  amount           Decimal @db.Decimal(18, 4)
+
+  taxCalculation TaxCalculation @relation(fields: [taxCalculationId], references: [id], onDelete: Cascade)
+
+  @@index([taxCalculationId])
+}
+
+// -----------------------------------------------------------------------------
+// MIRA RETURNS & RECONCILIATION
+// -----------------------------------------------------------------------------
+
+model MIRAReturn {
+  id                       String           @id @default(uuid())
+  tenantId                 String
+  taxPeriodId              String?
+  formId                   String           @unique
+  returnType               ReturnType
+  taxYear                  Int
+  formVersion              String
+  submissionStatus         SubmissionStatus @default(DRAFT)
+  miraReferenceNumber      String?
+  verificationChecksum     String?
+  payloadJson              String
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taxPeriod TaxPeriod?        @relation(fields: [taxPeriodId], references: [id], onDelete: SetNull)
+  lines     MIRAReturnLine[]
+
+  @@index([tenantId])
+  @@index([returnType])
+  @@index([taxYear])
+}
+
+model MIRAReturnLine {
+  id             String  @id @default(uuid())
+  miraReturnId   String
+  lineNumber     String
+  boxCode        String
+  boxDescription String
+  value          Decimal @db.Decimal(18, 4)
+
+  miraReturn MIRAReturn @relation(fields: [miraReturnId], references: [id], onDelete: Cascade)
+
+  @@index([miraReturnId])
+  @@index([boxCode])
+}
+
+model Reconciliation {
+  id                 String   @id @default(uuid())
+  tenantId           String
+  reconciliationType String   // 'GST_VS_GL', 'WHT_VS_GL'
+  periodStart        DateTime
+  periodEnd          DateTime
+  discrepancyAmount  Decimal  @db.Decimal(18, 4)
+  status             String   // 'BALANCED', 'DISCREPANCY_FOUND', 'RESOLVED'
+  notes              String?
+  createdAt          DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([periodStart, periodEnd])
+}
+
+model Approval {
+  id          String         @id @default(uuid())
+  tenantId    String
+  entityType  String         // e.g. 'INVOICE', 'MIRA_RETURN'
+  entityId    String
+  requestedBy String
+  approvedBy  String?
+  status      ApprovalStatus @default(PENDING_REVIEW)
+  comments    String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+}
+
+model AuditEvent {
+  id            String   @id @default(uuid())
+  tenantId      String
+  timestamp     DateTime @default(now())
+  action        String
+  entityType    String
+  recordId      String
+  performedBy   String?
+  details       String?
+  previousState String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [performedBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([timestamp])
+  @@index([entityType, recordId])
+}
+
+model PeriodLock {
+  id          String    @id @default(uuid())
+  tenantId    String
+  taxYear     Int
+  periodStart DateTime
+  periodEnd   DateTime
+  isLocked    Boolean   @default(true)
+  lockedBy    String?
+  lockedAt    DateTime?
+  createdAt   DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([taxYear])
+}
+
+// -----------------------------------------------------------------------------
+// REGULATORY ENGINE
+// -----------------------------------------------------------------------------
+
+model RegulatoryRule {
+  id             String   @id @default(uuid())
+  ruleId         String   @unique
+  taxType        String
+  ruleCode       String
+  description    String
+  effectiveFrom  String   // YYYY-MM-DD
+  effectiveTo    String?  // YYYY-MM-DD or null
+  taxYear        Int?
+  version        String
+  legalReference String
+  sourceURL      String
+  parametersJson String   // JSON string
+  status         String   // 'ACTIVE', 'SUPERSEDED', 'DRAFT'
+  sector         String?
+  taxpayerType   String?
+  jurisdiction   String   @default("MV")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([taxType])
+  @@index([ruleCode])
+  @@index([effectiveFrom])
+  @@index([status])
+}
+
+model RegulatoryVersion {
+  id                  String   @id @default(uuid())
+  versionId           String   @unique
+  versionNumber       String
+  effectiveTaxYear    Int
+  releaseDate         String
+  description         String
+  miraNoticeReference String?
+  status              String   // 'ACTIVE', 'DEPRECATED', 'DRAFT'
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([versionNumber])
+  @@index([effectiveTaxYear])
+}
+
+// -----------------------------------------------------------------------------
+// LEGACY MODELS (MAINTAINED & UPGRADED TO DECIMAL + TENANT)
+// -----------------------------------------------------------------------------
 
 model Transaction {
   transactionId         String   @id
+  tenantId              String   @default("default_tenant")
   entityId              String
   outletId              String
   sourceType            String
@@ -74,9 +821,9 @@ model Transaction {
   transactionDate       String
   supplierOrCustomer    String?
   description           String
-  amount                Float
-  gstAmount             Float
-  totalAmount           Float
+  amount                Decimal  @db.Decimal(18, 4)
+  gstAmount             Decimal  @db.Decimal(18, 4)
+  totalAmount           Decimal  @db.Decimal(18, 4)
   accountingCategory    String
   miraCategory          String
   accountingTreatment   String
@@ -88,42 +835,44 @@ model Transaction {
   reviewStatus          String
   createdAt             DateTime @default(now())
 
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   journalEntry JournalEntry?
 
+  @@index([tenantId])
   @@index([entityId])
   @@index([transactionDate])
   @@index([taxYear])
-  @@index([entityId, transactionDate])
-  @@index([entityId, taxYear])
 }
 
 model JournalEntry {
   journalId     String   @id
+  tenantId      String   @default("default_tenant")
   transactionId String   @unique
   entryDate     String
   entityId      String
   outletId      String
-  totalDebit    Float
-  totalCredit   Float
+  totalDebit    Decimal  @db.Decimal(18, 4)
+  totalCredit   Decimal  @db.Decimal(18, 4)
   isBalanced    Boolean
   notes         String?
   createdAt     DateTime @default(now())
 
-  transaction Transaction   @relation(fields: [transactionId], references: [transactionId], onDelete: Cascade)
-  lines       JournalLine[]
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transaction Transaction          @relation(fields: [transactionId], references: [transactionId], onDelete: Cascade)
+  lines       LegacyJournalLine[]
 
+  @@index([tenantId])
   @@index([entityId])
   @@index([transactionId])
-  @@index([entryDate])
 }
 
-model JournalLine {
+model LegacyJournalLine {
   lineId      String  @id
   journalId   String
   accountCode String
   accountName String
-  debit       Float
-  credit      Float
+  debit       Decimal @db.Decimal(18, 4)
+  credit      Decimal @db.Decimal(18, 4)
   description String?
 
   journalEntry JournalEntry @relation(fields: [journalId], references: [journalId], onDelete: Cascade)
@@ -132,8 +881,9 @@ model JournalLine {
   @@index([accountCode])
 }
 
-model FixedAsset {
+model LegacyFixedAsset {
   assetId                    String   @id
+  tenantId                   String   @default("default_tenant")
   entityId                   String
   outletId                   String
   transactionId              String?
@@ -141,51 +891,34 @@ model FixedAsset {
   assetName                  String
   assetClass                 String
   acquisitionDate            String
-  costPrice                  Float
-  salvageValue               Float?
-  miraCapitalAllowanceRate   Float
-  openingWDV                 Float
-  additionsInYear            Float
-  disposalsInYear            Float
-  capitalAllowanceClaimed    Float
-  closingWDV                 Float
+  costPrice                  Decimal  @db.Decimal(18, 4)
+  salvageValue               Decimal? @db.Decimal(18, 4)
+  miraCapitalAllowanceRate   Decimal  @db.Decimal(5, 4)
+  openingWDV                 Decimal  @db.Decimal(18, 4)
+  additionsInYear            Decimal  @db.Decimal(18, 4)
+  disposalsInYear            Decimal  @db.Decimal(18, 4)
+  capitalAllowanceClaimed    Decimal  @db.Decimal(18, 4)
+  closingWDV                 Decimal  @db.Decimal(18, 4)
   taxYear                    Int
   accountingPeriodStart      String
   accountingPeriodEnd        String
   notes                      String?
   isDisposed                 Boolean?
   disposalDate               String?
-  disposalValue              Float?
-  balancingAllowanceOrCharge Float?
+  disposalValue              Decimal? @db.Decimal(18, 4)
+  balancingAllowanceOrCharge Decimal? @db.Decimal(18, 4)
   createdAt                  DateTime @default(now())
 
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
   @@index([entityId])
   @@index([taxYear])
-  @@index([entityId, taxYear])
-  @@index([assetClass])
-}
-
-model TaxAdjustment {
-  adjustmentId   String   @id
-  entityId       String
-  taxYear        Int
-  adjustmentCode String
-  direction      String
-  amount         Float
-  description    String
-  transactionId  String?
-  approvalStatus String
-  createdBy      String
-  createdAt      DateTime @default(now())
-
-  @@index([entityId])
-  @@index([taxYear])
-  @@index([transactionId])
-  @@index([entityId, taxYear])
 }
 
 model TaxReturn {
   id                       String           @id
+  tenantId                 String           @default("default_tenant")
   entityId                 String
   formId                   String
   returnType               ReturnType
@@ -199,41 +932,41 @@ model TaxReturn {
   createdAt                DateTime         @default(now())
   updatedAt                DateTime         @updatedAt
 
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
   @@index([entityId])
   @@index([returnType])
   @@index([taxYear])
-  @@index([entityId, taxYear])
 }
 
-model AuditEvent {
-  eventId       String   @id
-  entityId      String
-  timestamp     String
-  action        String
-  entityType    String
-  recordId      String
-  performedBy   String
-  details       String?
-  previousState String?
-  createdAt     DateTime @default(now())
+model OCRFieldEvidence {
+  id                String   @id @default(uuid())
+  tenantId          String
+  documentId        String
+  invoiceId         String
+  fieldName         String
+  value             String?
+  extractedValue    String?
+  confidence        Decimal  @db.Decimal(5, 2)
+  source            String   @default("OCR_MODEL") // 'OCR_MODEL', 'USER_OVERRIDE', 'AI_INTERPOLATION'
+  boundingBox       String?  // JSON stringified coordinates
+  ocrModel          String?
+  ocrTimestamp      DateTime @default(now())
+  manuallyCorrected Boolean   @default(false)
+  correctedBy       String?
+  correctedAt       DateTime?
+  correctionReason  String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime @updatedAt
 
-  @@index([entityId])
-  @@index([timestamp])
-  @@index([entityType, recordId])
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  invoice  Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([documentId])
+  @@index([invoiceId])
+  @@index([fieldName])
 }
 
-model PeriodLock {
-  lockId      String   @id
-  entityId    String
-  taxYear     Int
-  periodStart String
-  periodEnd   String
-  isLocked    Boolean
-  lockedBy    String?
-  lockedAt    String?
-  createdAt   DateTime @default(now())
-
-  @@index([entityId])
-  @@index([taxYear])
-  @@index([entityId, taxYear])
-}

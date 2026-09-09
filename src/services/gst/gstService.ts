@@ -8,6 +8,15 @@ import {
   Mira105InputPurchasesBox,
   Mira105CapitalPurchasesBox
 } from '../../types/mira105';
+import {
+  Mira205GeneralReturn,
+  Mira206TourismReturn,
+  GstTransactionInput,
+  GstSector
+} from '../../types/gst';
+import { canonicalGstEngine, GstEngineService } from './gstEngineService';
+
+export { canonicalGstEngine, GstEngineService };
 
 /**
  * Classifies input GST eligibility for a purchase transaction.
@@ -66,19 +75,68 @@ export interface Mira105GenerationOptions {
 }
 
 /**
- * Generates official MIRA 105 GST Return Form for General or Tourism GST regimes.
- *
- * @param transactions List of Transaction records for the GST period
- * @param period GstPeriod configuration
- * @param options Mira105GenerationOptions
- * @returns Mira105GstReturn
+ * Generates MIRA 205 (General Sector GST Return Form v25.1)
+ */
+export function generateMira205Return(
+  transactions: GstTransactionInput[],
+  taxpayer: { tin: string; name: string; businessAddress?: string },
+  period: { periodName: string; startDate: string; endDate: string; taxYear: number },
+  previousExcessCredit: number = 0
+): Mira205GeneralReturn {
+  return canonicalGstEngine.generateMira205Return({
+    transactions,
+    taxpayer,
+    period,
+    previousExcessCredit
+  });
+}
+
+/**
+ * Generates MIRA 206 (Tourism Sector GST Return Form v25.1)
+ */
+export function generateMira206Return(
+  transactions: GstTransactionInput[],
+  taxpayer: {
+    tin: string;
+    name: string;
+    tourismEstablishmentName?: string;
+    operatingLicenseNumber?: string;
+  },
+  period: { periodName: string; startDate: string; endDate: string; taxYear: number },
+  previousExcessCredit: number = 0
+): Mira206TourismReturn {
+  return canonicalGstEngine.generateMira206Return({
+    transactions,
+    taxpayer,
+    period,
+    previousExcessCredit
+  });
+}
+
+/**
+ * Exports MIRA 205 return to formatted JSON
+ */
+export function exportMira205Json(gstReturn: Mira205GeneralReturn): string {
+  return JSON.stringify(gstReturn, null, 2);
+}
+
+/**
+ * Exports MIRA 206 return to formatted JSON
+ */
+export function exportMira206Json(gstReturn: Mira206TourismReturn): string {
+  return JSON.stringify(gstReturn, null, 2);
+}
+
+/**
+ * @deprecated Note: MIRA 105 is the GST Registration Form.
+ * For statutory GST returns, use generateMira205Return (General Sector) or generateMira206Return (Tourism Sector).
+ * Maintained for backwards compatibility.
  */
 export function generateMira105Return(
   transactions: AnyTransaction[],
   period: GstPeriod,
   options?: Mira105GenerationOptions
 ): Mira105GstReturn {
-  // Validation checks
   if (!period) {
     throw new Error('Validation Error: GST period parameters are required');
   }
@@ -116,7 +174,6 @@ export function generateMira105Return(
     } else if (tx.gstTreatment === 'EXEMPT' || tx.gstTreatment === 'OUT_OF_SCOPE') {
       box3_ExemptSales += amount;
     } else {
-      // Standard Rated
       box1_StandardRatedSales += amount;
       box4_OutputGstCollected += gst;
     }
@@ -232,9 +289,25 @@ export function generateMira105Return(
     submissionStatus: 'READY_FOR_FILING',
     generatedAt: timestamp,
     gstPeriod: period,
+    period,
     outputSales: outputBox,
+    salesSummary: {
+      standardRatedSales: box1_StandardRatedSales,
+      zeroRatedSales: box2_ZeroRatedSales,
+      exemptSales: box3_ExemptSales,
+      totalSales: Math.round(totalOutputSales * 100) / 100,
+      outputGstCollected: box4_OutputGstCollected
+    },
     inputPurchases: inputBox,
+    purchasesSummary: {
+      totalPurchases: box5_TotalPurchases,
+      taxablePurchases: box6_TaxablePurchases,
+      grossInputGstPaid: box7_GrossInputGstPaid,
+      claimableInputGst: box8_ClaimableInputGst,
+      nonClaimableInputGst
+    },
     box9_NetGstPayableOrRefundable,
+    netTaxPayable: box9_NetGstPayableOrRefundable,
     capitalPurchases: capitalBox,
     verificationChecksum: checksum
   };

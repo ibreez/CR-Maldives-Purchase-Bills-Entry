@@ -16,7 +16,10 @@ import {
   Calculator,
   Menu,
   X,
-  Calendar
+  Calendar,
+  Layers,
+  Globe,
+  ShieldCheck
 } from "lucide-react";
 import { DashboardSummary, AuthUser, Outlet } from "../types";
 
@@ -34,7 +37,10 @@ interface NavbarProps {
   onOpenGoogleSheets: () => void;
   onOpenOutletsModal: () => void;
   onOpenUsersModal: () => void;
+  onOpenGstReturns?: () => void;
+  onOpenNwtReturns?: () => void;
   onOpenIncomeTax?: () => void;
+  onOpenCompliance?: () => void;
   onOpenRevenue?: () => void;
   onOpenAssets?: () => void;
   onLogout: () => void;
@@ -52,7 +58,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenExportExcel,
   onOpenOutletsModal,
   onOpenUsersModal,
+  onOpenGstReturns,
+  onOpenNwtReturns,
   onOpenIncomeTax,
+  onOpenCompliance,
   onOpenRevenue,
   onOpenAssets,
   onLogout
@@ -345,6 +354,26 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
+            {onOpenGstReturns && (
+              <button
+                onClick={onOpenGstReturns}
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer"
+              >
+                <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                <span>GST (MIRA 205/206)</span>
+              </button>
+            )}
+
+            {onOpenNwtReturns && (
+              <button
+                onClick={onOpenNwtReturns}
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer"
+              >
+                <Globe className="w-3.5 h-3.5 text-blue-400" />
+                <span>NWT (MIRA 602)</span>
+              </button>
+            )}
+
             {onOpenIncomeTax && (
               <button
                 onClick={onOpenIncomeTax}
@@ -352,6 +381,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-amber-400" />
                 <span>Income Tax (MIRA 604)</span>
+              </button>
+            )}
+
+            {onOpenCompliance && (
+              <button
+                onClick={onOpenCompliance}
+                className="flex items-center space-x-2 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer bg-emerald-500/10 border border-emerald-500/20"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Compliance Dashboard</span>
               </button>
             )}
           </nav>
@@ -452,6 +491,26 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
+            {onOpenGstReturns && (
+              <button
+                onClick={() => { setMobileMenuOpen(false); onOpenGstReturns(); }}
+                className="w-full flex items-center space-x-3 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 rounded-lg"
+              >
+                <Layers className="w-4 h-4 text-emerald-400" />
+                <span>GST (MIRA 205/206)</span>
+              </button>
+            )}
+
+            {onOpenNwtReturns && (
+              <button
+                onClick={() => { setMobileMenuOpen(false); onOpenNwtReturns(); }}
+                className="w-full flex items-center space-x-3 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 rounded-lg"
+              >
+                <Globe className="w-4 h-4 text-blue-400" />
+                <span>NWT (MIRA 602)</span>
+              </button>
+            )}
+
             {onOpenIncomeTax && (
               <button
                 onClick={() => { setMobileMenuOpen(false); onOpenIncomeTax(); }}
@@ -459,6 +518,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <FileSpreadsheet className="w-4 h-4 text-amber-400" />
                 <span>Income Tax (MIRA 604)</span>
+              </button>
+            )}
+
+            {onOpenCompliance && (
+              <button
+                onClick={() => { setMobileMenuOpen(false); onOpenCompliance(); }}
+                className="w-full flex items-center space-x-3 px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 rounded-lg font-medium"
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>Compliance Dashboard</span>
               </button>
             )}
 

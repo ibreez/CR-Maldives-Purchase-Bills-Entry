@@ -1,0 +1,57 @@
+{
+  "caseId": "GOLDEN-002",
+  "caseNumber": 2,
+  "title": "General Sector GST Return Calculation (8% Standard Rate)",
+  "description": "Quarterly general sector calculation balancing standard-rated commercial supplies and allowable input purchases under the 8% general GST regime.",
+  "category": "GST",
+  "regulatoryReferences": [
+    "GST Act (Law No. 10/2011) Section 15(a) as amended by Act No. 20/2022",
+    "MIRA 205 Instructions v25.1"
+  ],
+  "effectiveDate": "2026-04-10",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-002",
+      "tin": "1000002GST001",
+      "taxpayerName": "Island Hardware Stores Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "parameters": {
+      "quarter": "Q1",
+      "totalTaxableSales": 100000,
+      "totalTaxablePurchases": 40000
+    }
+  },
+  "expectedClassifications": {
+    "gstTreatment": "STANDARD_RATED",
+    "taxRate": 0.08
+  },
+  "expectedCalculations": {
+    "taxableAmount": 100000,
+    "outputGst": 8000,
+    "claimableInputTax": 3200,
+    "netGstPayable": 4800,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_205",
+    "boxValues": {
+      "box10_taxable_sales": 100000,
+      "box11_output_tax": 8000,
+      "box20_taxable_purchases": 40000,
+      "box21_input_tax_claimed": 3200,
+      "box30_net_gst_payable": 4800
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "c65aa0f280e8287350421f73064c43f496182bde8123853c678f5e7984b9b894"
+}

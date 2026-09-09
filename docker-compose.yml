@@ -1,0 +1,70 @@
+# ==============================================================================
+# Phase 46 — Production Infrastructure Docker Compose Topology
+# Application Server + PostgreSQL 16
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cr-maldives-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-crmaldives}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./src/db/migrations/20260813000000_init_phase20_schema/migration.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crmaldives"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - crmaldives-net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cr-maldives-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-crmaldives}?schema=public
+      LOG_LEVEL: info
+      SESSION_SECRET: ${SESSION_SECRET:-production-secret-must-be-rotated-32-chars-min}
+      APP_URL: http://localhost:3000
+      DATABASE_POOL_MIN: 5
+      DATABASE_POOL_MAX: 20
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - appdata:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - crmaldives-net
+
+volumes:
+  pgdata:
+    driver: local
+  appdata:
+    driver: local
+
+networks:
+  crmaldives-net:
+    driver: bridge

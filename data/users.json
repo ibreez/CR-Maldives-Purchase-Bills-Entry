@@ -1,0 +1,58 @@
+[
+  {
+    "id": "user-ibreez",
+    "name": "Ibreez Super Admin",
+    "email": "ibreez@crmaldives.com",
+    "username": "ibreez",
+    "role": "super_admin",
+    "outlet_id": null,
+    "outlet_name": "All Outlets (System Admin)",
+    "status": "active",
+    "createdAt": "2026-08-22T12:38:50.380Z",
+    "lastLogin": "2026-08-22T12:38:56.506Z"
+  },
+  {
+    "id": "user-admin",
+    "name": "Super Admin",
+    "email": "admin@crmaldives.com",
+    "username": "admin",
+    "role": "super_admin",
+    "outlet_id": null,
+    "outlet_name": "All Outlets (System Admin)",
+    "status": "active",
+    "createdAt": "2026-08-22T12:38:50.380Z"
+  },
+  {
+    "id": "user-male",
+    "name": "Male' Manager",
+    "email": "male@crmaldives.com",
+    "username": "male_user",
+    "role": "outlet_user",
+    "outlet_id": "outlet-1",
+    "outlet_name": "Male' Main Branch",
+    "status": "active",
+    "createdAt": "2026-08-22T12:38:50.380Z"
+  },
+  {
+    "id": "user-hulhumale",
+    "name": "Hulhumale' Manager",
+    "email": "hulhumale@crmaldives.com",
+    "username": "hulhumale_user",
+    "role": "outlet_user",
+    "outlet_id": "outlet-2",
+    "outlet_name": "Hulhumale' Outlet",
+    "status": "active",
+    "createdAt": "2026-08-22T12:38:50.380Z"
+  },
+  {
+    "id": "user-maafushi",
+    "name": "Maafushi Manager",
+    "email": "maafushi@crmaldives.com",
+    "username": "maafushi_user",
+    "role": "outlet_user",
+    "outlet_id": "outlet-3",
+    "outlet_name": "Maafushi Resort Shop",
+    "status": "active",
+    "createdAt": "2026-08-22T12:38:50.380Z"
+  }
+]

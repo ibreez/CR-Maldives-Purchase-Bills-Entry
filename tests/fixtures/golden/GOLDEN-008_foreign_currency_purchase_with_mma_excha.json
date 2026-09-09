@@ -1,0 +1,67 @@
+{
+  "caseId": "GOLDEN-008",
+  "caseNumber": 8,
+  "title": "Foreign Currency Purchase with MMA Exchange Rate and FX Realization",
+  "description": "USD foreign purchase converted at MMA authoritative 15.42 rate with subsequent settlement FX realization.",
+  "category": "FX",
+  "regulatoryReferences": [
+    "Maldives Monetary Authority (MMA) Official FX Regulations",
+    "Income Tax Act (Law No. 25/2019) Section 10 (Foreign Currency Gains & Losses)"
+  ],
+  "effectiveDate": "2026-03-20",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-008",
+      "tin": "1000008GST001",
+      "taxpayerName": "Global Maritime Logistics Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "document": {
+      "fileName": "navigation_software_usd.pdf",
+      "documentType": "SUPPLIER_INVOICE",
+      "supplierName": "MarineTech Solutions US",
+      "invoiceNumber": "US-2026-0992",
+      "issueDate": "2026-03-20",
+      "currency": "USD",
+      "exchangeRate": 15.42,
+      "subtotal": 5000,
+      "gstAmount": 0,
+      "totalAmount": 5000
+    },
+    "parameters": {
+      "settlementDate": "2026-04-05",
+      "settlementRate": 15.45
+    }
+  },
+  "expectedClassifications": {
+    "documentType": "SUPPLIER_INVOICE",
+    "accountingClassification": "EXPENSE",
+    "gstTreatment": "NO_INPUT_TAX",
+    "incomeTaxTreatment": "DEDUCTIBLE"
+  },
+  "expectedCalculations": {
+    "subtotal": 77100,
+    "taxableAmount": 77100,
+    "totalAmount": 77100,
+    "realizedFxGainLoss": -150,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_604",
+    "boxValues": {
+      "sched1_operating_expenses": 77100,
+      "sched1_fx_loss": 150
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "af2a0d4e643d397763e67fa4d414087263d32b3a328d6a7c67f33078ab9694a0"
+}

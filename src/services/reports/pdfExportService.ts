@@ -3,6 +3,11 @@ import {
   renderMira604Html,
   renderMira105Html,
   renderMira302Html,
+  renderMira205Html,
+  renderMira206Html,
+  renderMira602Html,
+  renderSchedule2Html,
+  renderReconciliationReportHtml,
   renderAssetRegisterHtml,
   renderPnlSchedule1Html
 } from '../../templates/reportTemplates';
@@ -11,20 +16,25 @@ export type TaxReturnType =
   | 'MIRA604'
   | 'MIRA105'
   | 'MIRA302'
+  | 'MIRA205'
+  | 'MIRA206'
+  | 'MIRA602'
+  | 'SCHEDULE2'
+  | 'RECONCILIATION_REPORT'
   | 'ASSET_REGISTER'
   | 'PNL_SCHEDULE1';
 
 /**
- * Generates print-ready HTML/PDF content buffer for MIRA tax returns and schedules.
+ * Generates print-ready HTML/PDF content buffer for MIRA tax returns and schedules synchronously.
  *
  * @param returnType Type of tax return or report
  * @param data Tax return or register payload
- * @returns Promise<Buffer | string>
+ * @returns Buffer
  */
-export async function generateTaxReturnPdf(
+export function generateTaxReturnPdfSync(
   returnType: TaxReturnType,
   data: any
-): Promise<Buffer | string> {
+): Buffer {
   if (!data) {
     throw new Error('Export Error: Report data payload is required');
   }
@@ -33,14 +43,11 @@ export async function generateTaxReturnPdf(
 
   switch (returnType) {
     case 'MIRA604':
-      if (!data.sectionA_TaxpayerInfo) {
+      if (!data.sectionA_TaxpayerInfo && !data.taxpayer && !data.values) {
         throw new Error("Export Error: Missing required report field 'sectionA_TaxpayerInfo'");
       }
-      if (!data.sectionA_TaxpayerInfo.tin) {
+      if (data.sectionA_TaxpayerInfo && !data.sectionA_TaxpayerInfo.tin) {
         throw new Error("Export Error: Missing required report field 'tin'");
-      }
-      if (!data.sectionA_TaxpayerInfo.taxpayerName) {
-        throw new Error("Export Error: Missing required report field 'taxpayerName'");
       }
       htmlString = renderMira604Html(data);
       break;
@@ -48,25 +55,37 @@ export async function generateTaxReturnPdf(
       if (!data.gstPeriod) {
         throw new Error("Export Error: Missing required report field 'gstPeriod'");
       }
-      if (!data.gstPeriod.tin) {
-        throw new Error("Export Error: Missing required report field 'tin'");
-      }
-      if (!data.gstPeriod.taxpayerName) {
-        throw new Error("Export Error: Missing required report field 'taxpayerName'");
-      }
       htmlString = renderMira105Html(data);
+      break;
+    case 'MIRA205':
+      if (!data.taxpayer) {
+        throw new Error("Export Error: Missing required report field 'taxpayer' for MIRA 205");
+      }
+      htmlString = renderMira205Html(data);
+      break;
+    case 'MIRA206':
+      if (!data.taxpayer) {
+        throw new Error("Export Error: Missing required report field 'taxpayer' for MIRA 206");
+      }
+      htmlString = renderMira206Html(data);
       break;
     case 'MIRA302':
       if (!data.whtPeriod) {
         throw new Error("Export Error: Missing required report field 'whtPeriod'");
       }
-      if (!data.whtPeriod.tin) {
-        throw new Error("Export Error: Missing required report field 'tin'");
-      }
-      if (!data.whtPeriod.taxpayerName) {
-        throw new Error("Export Error: Missing required report field 'taxpayerName'");
-      }
       htmlString = renderMira302Html(data);
+      break;
+    case 'MIRA602':
+      if (!data.taxpayer) {
+        throw new Error("Export Error: Missing required report field 'taxpayer' for MIRA 602");
+      }
+      htmlString = renderMira602Html(data);
+      break;
+    case 'SCHEDULE2':
+      htmlString = renderSchedule2Html(data);
+      break;
+    case 'RECONCILIATION_REPORT':
+      htmlString = renderReconciliationReportHtml(data);
       break;
     case 'ASSET_REGISTER':
       htmlString = renderAssetRegisterHtml(data);
@@ -79,6 +98,20 @@ export async function generateTaxReturnPdf(
   }
 
   return Buffer.from(htmlString, 'utf-8');
+}
+
+/**
+ * Generates print-ready HTML/PDF content buffer for MIRA tax returns and schedules.
+ *
+ * @param returnType Type of tax return or report
+ * @param data Tax return or register payload
+ * @returns Promise<Buffer>
+ */
+export async function generateTaxReturnPdf(
+  returnType: TaxReturnType,
+  data: any
+): Promise<Buffer> {
+  return generateTaxReturnPdfSync(returnType, data);
 }
 
 /**

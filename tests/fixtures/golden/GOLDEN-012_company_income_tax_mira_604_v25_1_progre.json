@@ -1,0 +1,62 @@
+{
+  "caseId": "GOLDEN-012",
+  "caseNumber": 12,
+  "title": "Company Income Tax (MIRA 604 v25.1 Progressive Calculation)",
+  "description": "Corporate income tax on MVR 1,300,000 taxable profit asserting MVR 500,000 threshold @ 0% and remaining MVR 800,000 @ 15% = MVR 120,000.",
+  "category": "INCOME_TAX",
+  "regulatoryReferences": [
+    "Income Tax Act (Law No. 25/2019) Section 15(a) (Company Income Tax Rate & Threshold)",
+    "MIRA 604 Return Form v25.1 Section F"
+  ],
+  "effectiveDate": "2026-12-31",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-012",
+      "tin": "1000012GST001",
+      "taxpayerName": "Premier Commercial Logistics Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "parameters": {
+      "grossRevenue": 2500000,
+      "deductibleExpenses": 1200000,
+      "nonDeductibleFines": 10000,
+      "capitalAllowanceAdjustment": -10000
+    }
+  },
+  "expectedClassifications": {
+    "accountingClassification": "REVENUE"
+  },
+  "expectedCalculations": {
+    "grossRevenue": 2500000,
+    "totalExpenses": 1200000,
+    "accountingProfit": 1300000,
+    "taxAdjustmentsAddBack": 10000,
+    "taxAdjustmentsDeductions": 10000,
+    "netTaxAdjustments": 0,
+    "adjustedTaxableProfit": 1300000,
+    "netTaxableIncome": 1300000,
+    "taxLiability": 120000
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_604",
+    "boxValues": {
+      "sched1_gross_revenue": 2500000,
+      "sched1_accounting_profit": 1300000,
+      "secF_taxable_income": 1300000,
+      "secF_threshold_exempt": 500000,
+      "secF_tax_at_15pct": 120000,
+      "secF_total_tax_payable": 120000
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "1085023aaf1e5e39cae3a7018598651b9afe82849e55cd648f1bd368ab28ce32"
+}

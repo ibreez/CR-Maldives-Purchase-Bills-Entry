@@ -186,6 +186,16 @@ export interface BillRecord {
   year: number;
   updatedAt: string;
   audit_trail?: AuditLogEntry[];
+  ai_extraction_id?: string;
+  ai_governance?: {
+    model: string;
+    modelVersion: string;
+    promptVersion: string;
+    rawOutputHash: string;
+    riskScore: number;
+    anomalies: string[];
+    requiresHumanReview: boolean;
+  };
 }
 
 export interface TemplateColumnMapping {

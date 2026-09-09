@@ -1,0 +1,78 @@
+{
+  "caseId": "GOLDEN-007",
+  "caseNumber": 7,
+  "title": "Capital Asset Acquisition and Schedule 2 Capital Allowance Pooling",
+  "description": "Server equipment acquisition: GST input tax claimable, book depreciation added back (+MVR 30,000), Schedule 2 capital allowance deducted (-MVR 50,000).",
+  "category": "CAPITAL_ASSETS",
+  "regulatoryReferences": [
+    "Income Tax Act (Law No. 25/2019) Section 18 & Schedule 2 (Capital Allowances)",
+    "Income Tax Regulation Chapter 4"
+  ],
+  "effectiveDate": "2026-01-15",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-007",
+      "tin": "1000007GST001",
+      "taxpayerName": "CloudNet Maldives Solutions Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "document": {
+      "fileName": "dell_poweredge_server_inv.pdf",
+      "documentType": "ASSET_PURCHASE",
+      "supplierName": "Maxcom Technologies Maldives",
+      "supplierTin": "1002222GST001",
+      "invoiceNumber": "ASSET-2026-001",
+      "issueDate": "2026-01-15",
+      "currency": "MVR",
+      "subtotal": 150000,
+      "gstAmount": 12000,
+      "totalAmount": 162000
+    },
+    "parameters": {
+      "assetCategory": "COMPUTER_SOFTWARE_AND_ELECTRONIC_EQUIPMENT",
+      "bookDepreciationRate": 0.2,
+      "capitalAllowanceRate": 0.333333
+    }
+  },
+  "expectedClassifications": {
+    "documentType": "ASSET_PURCHASE",
+    "accountingClassification": "ASSET",
+    "accountingCategory": "capital_asset_schedule2.computer_hardware",
+    "gstTreatment": "STANDARD_RATED",
+    "incomeTaxTreatment": "CAPITAL_ALLOWANCE",
+    "miraCategory": "capital_asset_schedule2"
+  },
+  "expectedCalculations": {
+    "costBasis": 150000,
+    "claimableInputTax": 12000,
+    "bookDepreciationAddBack": 30000,
+    "capitalAllowanceClaimed": 50000,
+    "netTaxAdjustments": -20000,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_604",
+    "schedulesIncluded": [
+      "Schedule 2 - Capital Allowances",
+      "Section C - Tax Adjustments"
+    ],
+    "boxValues": {
+      "sched2_additions": 150000,
+      "sched2_allowance_claimed": 50000,
+      "sched2_closing_wdv": 100000,
+      "secC_book_depreciation_addback": 30000,
+      "secC_capital_allowance_deduction": 50000
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "4bb9ac6ef5b5f445414a4c884432b5bc3d49402ca32c4a77363902f871d425fa"
+}

@@ -1,0 +1,59 @@
+{
+  "caseId": "GOLDEN-014",
+  "caseNumber": 14,
+  "title": "Prior Year Tax Loss Offset and Carry-Forward Lot Relief",
+  "description": "Current taxable profit of MVR 600,000 offset by MVR 400,000 prior unabsorbed loss, resulting in MVR 200,000 net taxable income (below threshold = MVR 0 tax).",
+  "category": "INCOME_TAX",
+  "regulatoryReferences": [
+    "Income Tax Act (Law No. 25/2019) Section 29 (Loss Relief & 5-Year Carry Forward)",
+    "MIRA 604 Schedule 4 (Tax Losses)"
+  ],
+  "effectiveDate": "2026-12-31",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-014",
+      "tin": "1000014GST001",
+      "taxpayerName": "Pinnacle Ventures Maldives Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "parameters": {
+      "adjustedTaxableProfit": 600000,
+      "priorUnabsorbedLosses": 400000,
+      "lossYear": 2024
+    }
+  },
+  "expectedClassifications": {
+    "accountingClassification": "REVENUE"
+  },
+  "expectedCalculations": {
+    "adjustedTaxableProfit": 600000,
+    "lossReliefApplied": 400000,
+    "remainingLossCarriedForward": 0,
+    "netTaxableIncome": 200000,
+    "taxLiability": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_604",
+    "schedulesIncluded": [
+      "Schedule 4 - Tax Losses"
+    ],
+    "boxValues": {
+      "sched4_opening_loss": 400000,
+      "sched4_loss_utilized": 400000,
+      "sched4_closing_loss": 0,
+      "secF_net_taxable_income": 200000,
+      "secF_tax_payable": 0
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "f3b2d5e9cf236642e14843dc1df50a850765b481318044bfa361039c6950d713"
+}

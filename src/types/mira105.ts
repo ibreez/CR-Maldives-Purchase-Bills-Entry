@@ -43,15 +43,31 @@ export interface Mira105GstReturn {
   submissionStatus: 'DRAFT' | 'READY_FOR_FILING' | 'SUBMITTED';
   generatedAt: string;
   gstPeriod: GstPeriod;
+  period?: GstPeriod;
 
   // Box 1–4: Output Sales & Output GST Collected
   outputSales: Mira105OutputSalesBox;
+  salesSummary?: {
+    standardRatedSales: number;
+    zeroRatedSales: number;
+    exemptSales: number;
+    totalSales: number;
+    outputGstCollected: number;
+  };
 
   // Box 5–8: Input Purchases & Claimable Input GST
   inputPurchases: Mira105InputPurchasesBox;
+  purchasesSummary?: {
+    totalPurchases: number;
+    taxablePurchases: number;
+    grossInputGstPaid: number;
+    claimableInputGst: number;
+    nonClaimableInputGst: number;
+  };
 
   // Box 9: Net GST Payable or Claimable Refund
   box9_NetGstPayableOrRefundable: number; // Positive = Payable, Negative = Refundable
+  netTaxPayable?: number;
 
   // Box 10: Capital Purchase Input GST Breakdown
   capitalPurchases: Mira105CapitalPurchasesBox;

@@ -1,0 +1,56 @@
+{
+  "caseId": "GOLDEN-020",
+  "caseNumber": 20,
+  "title": "Comprehensive MIRA Offline Statutory Filing Package with Cryptographic Manifest",
+  "description": "Enterprise annual package generation bundling MIRA 604, MIRA 105, MIRA 302, Schedules 1-4, calculation workpapers, and SHA-256 integrity verification.",
+  "category": "FILING_PACKAGE",
+  "regulatoryReferences": [
+    "Income Tax Regulation Chapter 2 (MIRA 604 Return Requirements)",
+    "GST Regulation Chapter 3 (GST Return Requirements)",
+    "MIRA Offline Filing Package Standard v25.1"
+  ],
+  "effectiveDate": "2026-12-31",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-020",
+      "tin": "1000020GST001",
+      "taxpayerName": "Maldives Marine Infrastructure Corp Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "parameters": {
+      "taxYear": 2026,
+      "fixedTimestamp": "2026-12-31T23:59:59.000Z"
+    }
+  },
+  "expectedClassifications": {
+    "accountingClassification": "REVENUE"
+  },
+  "expectedCalculations": {
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_PACKAGE",
+    "schedulesIncluded": [
+      "MIRA 604 Corporate Return",
+      "MIRA 105 / 205 GST Statement",
+      "MIRA 302 Withholding Statement",
+      "Schedule 1 - P&L Statement",
+      "Schedule 2 - Capital Allowances",
+      "Section C - Tax Adjustments",
+      "Calculation Workpapers",
+      "Cryptographic Manifest"
+    ],
+    "totalFormsCount": 8
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "fe6a8a0fc11e136091e99642e0adbf155a2f14b162af5325b6e1777abd26fa77"
+}

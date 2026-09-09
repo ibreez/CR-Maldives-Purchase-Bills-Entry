@@ -162,6 +162,19 @@ const commonStyles = `
   </style>
 `;
 
+/**
+ * Sanitizes untrusted strings to prevent Cross-Site Scripting (HTML injection) in generated reports.
+ */
+export function escapeHtml(str: any): string {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function renderHeader(entityName: string, tin: string, taxYear: number | string, formTitle: string, timestamp?: string): string {
   const ts = timestamp || new Date().toISOString();
   return `
@@ -171,10 +184,10 @@ function renderHeader(entityName: string, tin: string, taxYear: number | string,
         <h2>${formTitle}</h2>
       </div>
       <div class="header-meta">
-        <p><strong>Entity:</strong> ${entityName || 'N/A'}</p>
-        <p><strong>TIN:</strong> ${tin || 'N/A'}</p>
-        <p><strong>Tax Year / Period:</strong> ${taxYear}</p>
-        <p><strong>Generated:</strong> ${ts}</p>
+        <p><strong>Entity:</strong> ${escapeHtml(entityName || 'N/A')}</p>
+        <p><strong>TIN:</strong> ${escapeHtml(tin || 'N/A')}</p>
+        <p><strong>Tax Year / Period:</strong> ${escapeHtml(taxYear)}</p>
+        <p><strong>Generated:</strong> ${escapeHtml(ts)}</p>
       </div>
     </div>
   `;
@@ -216,27 +229,27 @@ export function renderMira604Html(data: Mira604TaxReturn | any): string {
         <div class="grid-3">
           <div>
             <div class="info-label">Taxpayer Name</div>
-            <div class="info-value">${taxpayer.taxpayerName || 'N/A'}</div>
+            <div class="info-value">${escapeHtml(taxpayer.taxpayerName || 'N/A')}</div>
           </div>
           <div>
             <div class="info-label">TIN</div>
-            <div class="info-value">${taxpayer.tin || 'N/A'}</div>
+            <div class="info-value">${escapeHtml(taxpayer.tin || 'N/A')}</div>
           </div>
           <div>
             <div class="info-label">Legal Entity Type</div>
-            <div class="info-value">${taxpayer.entityType || 'COMPANY'}</div>
+            <div class="info-value">${escapeHtml(taxpayer.entityType || 'COMPANY')}</div>
           </div>
           <div>
             <div class="info-label">Accounting Period Start</div>
-            <div class="info-value">${taxpayer.accountingPeriodStart || 'N/A'}</div>
+            <div class="info-value">${escapeHtml(taxpayer.accountingPeriodStart || 'N/A')}</div>
           </div>
           <div>
             <div class="info-label">Accounting Period End</div>
-            <div class="info-value">${taxpayer.accountingPeriodEnd || 'N/A'}</div>
+            <div class="info-value">${escapeHtml(taxpayer.accountingPeriodEnd || 'N/A')}</div>
           </div>
           <div>
             <div class="info-label">Tax Form ID / Version</div>
-            <div class="info-value">${data.formId || 'MIRA604'} (${data.formVersion || 'V25.1'})</div>
+            <div class="info-value">${escapeHtml(data.formId || 'MIRA604')} (${escapeHtml(data.formVersion || 'V25.1')})</div>
           </div>
         </div>
       </div>
@@ -563,3 +576,359 @@ export function renderPnlSchedule1Html(data: any): string {
     </html>
   `;
 }
+
+/**
+ * Generates styled HTML layout for MIRA 205 General Sector GST Return
+ */
+export function renderMira205Html(data: any): string {
+  const taxpayer = data.taxpayer || {};
+  const period = data.period || {};
+  const supplies = data.sectionA_Supplies || {};
+  const purchases = data.sectionB_Purchases || {};
+  const calc = data.sectionC_Calculation || {};
+
+  const netGst = calc.box17_FinalAmountPayableOrRefundable ?? calc.box15_NetGstPayableOrRefundable ?? 0;
+  const isDue = netGst >= 0;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>MIRA 205 - General Sector GST Return</title>
+      ${commonStyles}
+    </head>
+    <body>
+      ${renderHeader(taxpayer.name, taxpayer.tin, period.periodName || period.taxYear, 'MIRA 205 - General Sector Goods & Services Tax Return', data.generatedAt)}
+
+      <div class="highlight-box ${isDue ? 'due' : ''}">
+        <span>FINAL GST ${isDue ? 'PAYABLE TO MIRA' : 'CLAIMABLE REFUND'} (BOX 17)</span>
+        <span>MVR ${(Math.abs(netGst)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+      </div>
+
+      <div class="section-box">
+        <div class="section-header">Taxpayer & Period Information</div>
+        <div class="grid-3">
+          <div><div class="info-label">Taxpayer Name</div><div class="info-value">${taxpayer.name || 'N/A'}</div></div>
+          <div><div class="info-label">TIN</div><div class="info-value">${taxpayer.tin || 'N/A'}</div></div>
+          <div><div class="info-label">Sector</div><div class="info-value">GENERAL (8% GST)</div></div>
+          <div><div class="info-label">Tax Period</div><div class="info-value">${period.periodName || 'N/A'}</div></div>
+          <div><div class="info-label">Period Start</div><div class="info-value">${period.startDate || 'N/A'}</div></div>
+          <div><div class="info-label">Period End</div><div class="info-value">${period.endDate || 'N/A'}</div></div>
+        </div>
+      </div>
+
+      <div class="section-box">
+        <div class="section-header">Section A: Output Supplies (Boxes 1 - 7)</div>
+        <table class="data-table">
+          <tr><th>Description</th><th class="number">Supplies Amount (MVR)</th><th class="number">Output Tax (MVR)</th></tr>
+          <tr><td>Box 1: Standard-Rated Supplies (8%)</td><td class="number">${(supplies.box1_StandardRatedSupplies8Pct?.taxableValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">${(supplies.box1_StandardRatedSupplies8Pct?.outputTax || supplies.box5_TotalOutputTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Box 2: Zero-Rated Supplies / Exports</td><td class="number">${(supplies.box2_ZeroRatedSupplies || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">0.00</td></tr>
+          <tr><td>Box 3: Exempt Supplies</td><td class="number">${(supplies.box3_ExemptSupplies || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">0.00</td></tr>
+          <tr class="total-row"><td>Box 4 & 5: Total Supplies & Total Output Tax</td><td class="number">${(supplies.box4_TotalSuppliesValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">${(supplies.box5_TotalOutputTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Box 6: Output Tax Adjustments (Credit/Debit Notes)</td><td class="number">-</td><td class="number">${(supplies.box6_OutputTaxAdjustments || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr class="total-row"><td>Box 7: Net Output Tax Payable</td><td class="number">-</td><td class="number">${(supplies.box7_NetOutputTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+        </table>
+      </div>
+
+      <div class="section-box">
+        <div class="section-header">Section B: Input Purchases (Boxes 8 - 14)</div>
+        <table class="data-table">
+          <tr><th>Description</th><th class="number">Purchases Amount (MVR)</th><th class="number">Input Tax (MVR)</th></tr>
+          <tr><td>Box 8: Standard-Rated Operational Purchases</td><td class="number">${(purchases.box8_StandardRatedPurchases?.taxableValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">${(purchases.box8_StandardRatedPurchases?.inputTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Box 9: Capital Asset Purchases</td><td class="number">${(purchases.box9_CapitalPurchases?.taxableValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">${(purchases.box9_CapitalPurchases?.inputTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Box 10: Blocked Non-Claimable Input Tax (Sec 22(b))</td><td class="number">${(purchases.box10_BlockedInputTax?.taxableValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">(${(purchases.box10_BlockedInputTax?.blockedTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })})</td></tr>
+          <tr><td>Box 11: Mixed-Use Apportionment Claimable Tax</td><td class="number">${(purchases.box11_MixedUseApportionment?.totalMixedValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">${(purchases.box11_MixedUseApportionment?.claimableInputTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr class="total-row"><td>Box 12: Total Claimable Input Tax</td><td class="number">-</td><td class="number">${(purchases.box12_TotalClaimableInputTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Box 13: Input Tax Adjustments</td><td class="number">-</td><td class="number">${(purchases.box13_InputTaxAdjustments || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr class="total-row"><td>Box 14: Net Claimable Input Tax</td><td class="number">-</td><td class="number">${(purchases.box14_NetClaimableInputTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+        </table>
+      </div>
+
+      <div class="declaration-block">
+        <div class="declaration-title">Official Taxpayer Declaration</div>
+        <p>I declare to the best of my knowledge and belief that the information given in this MIRA 205 GST return is true, correct, and complete in accordance with the Maldives Goods and Services Tax Act (Act No. 10/2011).</p>
+        <div class="signature-grid">
+          <div class="signature-line">Authorized Signatory</div>
+          <div class="signature-line">Designation</div>
+          <div class="signature-line">Date</div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * Generates styled HTML layout for MIRA 206 Tourism Sector GST Return (TGST)
+ */
+export function renderMira206Html(data: any): string {
+  const taxpayer = data.taxpayer || {};
+  const period = data.period || {};
+  const supplies = data.sectionA_Supplies || {};
+  const purchases = data.sectionB_Purchases || {};
+  const calc = data.sectionC_Calculation || {};
+
+  const netGst = calc.box16_FinalTgstPayableOrRefundable ?? calc.box14_NetTgstPayableOrRefundable ?? 0;
+  const isDue = netGst >= 0;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>MIRA 206 - Tourism Sector GST Return</title>
+      ${commonStyles}
+    </head>
+    <body>
+      ${renderHeader(taxpayer.name, taxpayer.tin, period.periodName || period.taxYear, 'MIRA 206 - Tourism Sector GST Return (TGST)', data.generatedAt)}
+
+      <div class="highlight-box ${isDue ? 'due' : ''}">
+        <span>FINAL TGST ${isDue ? 'PAYABLE TO MIRA' : 'CLAIMABLE REFUND'} (BOX 16)</span>
+        <span>MVR ${(Math.abs(netGst)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+      </div>
+
+      <div class="section-box">
+        <div class="section-header">Tourism Entity & Period Information</div>
+        <div class="grid-3">
+          <div><div class="info-label">Establishment Name</div><div class="info-value">${taxpayer.tourismEstablishmentName || taxpayer.name || 'N/A'}</div></div>
+          <div><div class="info-label">TIN</div><div class="info-value">${taxpayer.tin || 'N/A'}</div></div>
+          <div><div class="info-label">Operating License No</div><div class="info-value">${taxpayer.operatingLicenseNumber || 'MOT-LIC-2026'}</div></div>
+          <div><div class="info-label">Tax Period</div><div class="info-value">${period.periodName || 'N/A'}</div></div>
+          <div><div class="info-label">Period Start</div><div class="info-value">${period.startDate || 'N/A'}</div></div>
+          <div><div class="info-label">Period End</div><div class="info-value">${period.endDate || 'N/A'}</div></div>
+        </div>
+      </div>
+
+      <div class="section-box">
+        <div class="section-header">Section A: Tourism Supplies (Boxes 1 - 7)</div>
+        <table class="data-table">
+          <tr><th>Description</th><th class="number">Supplies (MVR)</th><th class="number">TGST (MVR)</th></tr>
+          <tr><td>Box 1A: Tourism Supplies @ 16% (through 2025-06-30)</td><td class="number">${(supplies.box1A_TourismSupplies16Pct?.taxableValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">${(supplies.box1A_TourismSupplies16Pct?.outputTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Box 1B: Tourism Supplies @ 17% (from 2025-07-01)</td><td class="number">${(supplies.box1B_TourismSupplies17Pct?.taxableValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">${(supplies.box1B_TourismSupplies17Pct?.outputTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Box 2: Zero-Rated Tourism Supplies</td><td class="number">${(supplies.box2_ZeroRatedTourismSupplies || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">0.00</td></tr>
+          <tr><td>Box 3: Exempt Tourism Supplies</td><td class="number">${(supplies.box3_ExemptTourismSupplies || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">0.00</td></tr>
+          <tr class="total-row"><td>Box 4 & 5: Total Supplies & Total TGST Output Tax</td><td class="number">${(supplies.box4_TotalTourismSuppliesValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="number">${(supplies.box5_TotalTgstOutputTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Box 6: TGST Output Adjustments</td><td class="number">-</td><td class="number">${(supplies.box6_TgstOutputAdjustments || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr class="total-row"><td>Box 7: Net TGST Output Tax Payable</td><td class="number">-</td><td class="number">${(supplies.box7_NetTgstOutputTax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+        </table>
+      </div>
+
+      <div class="declaration-block">
+        <div class="declaration-title">Official Tourism GST Declaration</div>
+        <p>I certify that this TGST Return is true and correct in accordance with the Goods and Services Tax Act and Tourism Sector Tax Regulations.</p>
+        <div class="signature-grid">
+          <div class="signature-line">Authorized Tourism Representative</div>
+          <div class="signature-line">Designation</div>
+          <div class="signature-line">Date</div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * Generates styled HTML layout for MIRA 602 Non-Resident Withholding Tax Return
+ */
+export function renderMira602Html(data: any): string {
+  const taxpayer = data.taxpayer || {};
+  const period = data.period || {};
+  const categories = data.categorySummaries || [];
+  const payees = data.scheduleOfPayees || [];
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>MIRA 602 - Non-Resident Withholding Tax Return</title>
+      ${commonStyles}
+    </head>
+    <body>
+      ${renderHeader(taxpayer.businessName || taxpayer.taxpayerName, taxpayer.tin, period.periodName || period.taxYear, 'MIRA 602 - Non-Resident Withholding Tax Return (Section 55)', data.generatedAt)}
+
+      <div class="highlight-box">
+        <span>TOTAL NWT TAX WITHHELD AT SOURCE</span>
+        <span>MVR ${(data.totalNwtWithheldMvr || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+      </div>
+
+      <div class="section-box">
+        <div class="section-header">Section A: Taxpayer & Period Details</div>
+        <div class="grid-3">
+          <div><div class="info-label">Taxpayer Name</div><div class="info-value">${escapeHtml(taxpayer.businessName || taxpayer.taxpayerName || 'N/A')}</div></div>
+          <div><div class="info-label">TIN</div><div class="info-value">${escapeHtml(taxpayer.tin || 'N/A')}</div></div>
+          <div><div class="info-label">Period Name</div><div class="info-value">${escapeHtml(period.periodName || 'N/A')}</div></div>
+          <div><div class="info-label">Period Start</div><div class="info-value">${escapeHtml(period.startDate || 'N/A')}</div></div>
+          <div><div class="info-label">Period End</div><div class="info-value">${escapeHtml(period.endDate || 'N/A')}</div></div>
+          <div><div class="info-label">Filing Due Date</div><div class="info-value">${escapeHtml(data.filingDueDate || period.filingDueDate || 'N/A')}</div></div>
+        </div>
+      </div>
+
+      <div class="section-box">
+        <div class="section-header">Section B: Statutory Category Breakdown</div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Statutory Category</th><th class="number">Rate</th><th class="number">Count</th><th class="number">Gross Payments (MVR)</th><th class="number">Tax Withheld (MVR)</th></tr>
+          </thead>
+          <tbody>
+            ${categories.map((c: any) => `
+              <tr>
+                <td>${escapeHtml(c.categoryName || c.category)}</td>
+                <td class="number">${(c.statutoryRate * 100).toFixed(0)}%</td>
+                <td class="number">${c.transactionCount || 0}</td>
+                <td class="number">${(c.totalGrossAmountMvr || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td class="number">${(c.totalNwtWithheldMvr || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            `).join('')}
+            <tr class="total-row">
+              <td colspan="3">Total Summary</td>
+              <td class="number">${(data.totalGrossPaymentsMvr || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+              <td class="number">${(data.totalNwtWithheldMvr || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-box">
+        <div class="section-header">Section C: Line-by-Line Non-Resident Payee Schedule</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Payee Name</th>
+              <th>Country</th>
+              <th>Category</th>
+              <th>Withholding Date</th>
+              <th class="number">Gross (MVR)</th>
+              <th class="number">Rate</th>
+              <th class="number">NWT Withheld (MVR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${payees.map((p: any) => `
+              <tr>
+                <td>${escapeHtml(p.lineNo || '-')}</td>
+                <td>${escapeHtml(p.payeeName)}</td>
+                <td>${escapeHtml(p.payeeCountry)}</td>
+                <td>${escapeHtml(p.categoryDescription || p.category)}</td>
+                <td>${escapeHtml(p.withholdingDate || '-')}</td>
+                <td class="number">${(p.grossAmountMvr || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td class="number">${((p.nwtRate || 0.1) * 100).toFixed(0)}%</td>
+                <td class="number">${(p.nwtWithheldMvr || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            `).join('')}
+            ${payees.length === 0 ? '<tr><td colspan="8" style="text-align:center; color:#94a3b8; padding:16px;">No non-resident payee transactions recorded.</td></tr>' : ''}
+          </tbody>
+        </table>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * Generates styled HTML layout for MIRA 604 Schedule 2 (Statement of Financial Position - Balance Sheet)
+ */
+export function renderSchedule2Html(data: any): string {
+  const sch = data.schedule2 || data || {};
+  const values = sch.mappedFields || sch.values || sch || {};
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>MIRA 604 Schedule 2 - Statement of Financial Position</title>
+      ${commonStyles}
+    </head>
+    <body>
+      ${renderHeader(data.entityName || 'Taxpayer', data.tin || 'N/A', data.taxYear || 2026, 'MIRA 604 Schedule 2 - Statement of Financial Position (Balance Sheet)', data.generatedAt)}
+
+      <div class="section-box">
+        <div class="section-header">Assets</div>
+        <table class="data-table">
+          <tr><th>Description</th><th class="number">Amount (MVR)</th></tr>
+          <tr><td>Property, Plant and Equipment (PPE)</td><td class="number">${(values.S2_A01_PPE || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Intangible Assets</td><td class="number">${(values.S2_A02_INTANGIBLES || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Other Non-Current Assets</td><td class="number">${(values.S2_A03_OTHER_NON_CURRENT_ASSETS || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr class="total-row"><td>Total Non-Current Assets</td><td class="number">${(values.S2_A04_TOTAL_NON_CURRENT_ASSETS || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Inventories / Stock</td><td class="number">${(values.S2_A05_INVENTORIES || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Trade and Other Receivables</td><td class="number">${(values.S2_A06_RECEIVABLES || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Cash and Cash Equivalents</td><td class="number">${(values.S2_A07_CASH_EQUIVALENTS || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr class="total-row"><td>Total Current Assets</td><td class="number">${(values.S2_A09_TOTAL_CURRENT_ASSETS || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr class="total-row"><td>TOTAL ASSETS</td><td class="number">${(values.S2_A10_TOTAL_ASSETS || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+        </table>
+      </div>
+
+      <div class="section-box">
+        <div class="section-header">Equity & Liabilities</div>
+        <table class="data-table">
+          <tr><th>Description</th><th class="number">Amount (MVR)</th></tr>
+          <tr><td>Share Capital / Owner Capital</td><td class="number">${(values.S2_L01_SHARE_CAPITAL || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Retained Earnings / Accumulated Reserves</td><td class="number">${(values.S2_L02_RETAINED_EARNINGS || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr class="total-row"><td>Total Equity</td><td class="number">${(values.S2_L04_TOTAL_EQUITY || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Non-Current Liabilities (Long-term borrowings)</td><td class="number">${(values.S2_L06_NON_CURRENT_LIABILITIES || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td>Trade and Other Payables (Current liabilities)</td><td class="number">${(values.S2_L07_TRADE_PAYABLES || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr class="total-row"><td>Total Liabilities</td><td class="number">${(values.S2_L09_TOTAL_CURRENT_LIABILITIES || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+          <tr class="total-row"><td>TOTAL EQUITY AND LIABILITIES</td><td class="number">${(values.S2_L10_TOTAL_EQUITY_AND_LIABILITIES || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td></tr>
+        </table>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * Generates styled HTML layout for MIRA Cross-Module Reconciliation Audit Report
+ */
+export function renderReconciliationReportHtml(data: any): string {
+  const results = data.results || [];
+  const status = data.overallStatus || (data.isValid ? 'PASS' : 'WARNING');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>MIRA Statutory Cross-Module Reconciliation Audit Report</title>
+      ${commonStyles}
+    </head>
+    <body>
+      ${renderHeader(data.taxpayerName || data.entityId || 'Taxpayer', data.tin || 'N/A', data.taxYear || 2026, 'MIRA Cross-Module Reconciliation Audit Report (12 Modules)', data.auditTimestamp || data.generatedAt)}
+
+      <div class="highlight-box ${status === 'PASS' ? '' : 'due'}">
+        <span>STATUTORY RECONCILIATION SUITE RESULT</span>
+        <span>${status} (${results.filter((r: any) => r.isReconciled).length}/${results.length} MODULES RECONCILED)</span>
+      </div>
+
+      <div class="section-box">
+        <div class="section-header">12-Module Cross-Subsystem Audit Summary</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Module Rule ID & Name</th>
+              <th class="number">Primary Balance</th>
+              <th class="number">Secondary Balance</th>
+              <th class="number">Variance (MVR)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${results.map((r: any) => `
+              <tr>
+                <td><strong>${escapeHtml(r.ruleId)}</strong> - ${escapeHtml(r.moduleName)}</td>
+                <td class="number">${(r.primaryBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td class="number">${(r.secondaryBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td class="number">${(r.variance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td><span style="color: ${r.isReconciled ? '#166534' : '#991b1b'}; font-weight: 700;">${escapeHtml(r.status || (r.isReconciled ? 'RECONCILED' : 'DISCREPANCY'))}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </body>
+    </html>
+  `;
+}
+

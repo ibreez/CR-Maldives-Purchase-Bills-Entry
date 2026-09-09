@@ -1,0 +1,63 @@
+{
+  "caseId": "GOLDEN-009",
+  "caseNumber": 9,
+  "title": "Non-Resident Withholding Tax on Technical & Cloud Services (10%)",
+  "description": "Offshore technical services fee subject to statutory 10% Non-Resident Withholding Tax deduction under Section 55 ITA.",
+  "category": "NWT",
+  "regulatoryReferences": [
+    "Income Tax Act (Law No. 25/2019) Section 55(a)(5) (Technical Fees)",
+    "MIRA 302 / MIRA 602 Withholding Tax Return Schema"
+  ],
+  "effectiveDate": "2026-06-10",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-009",
+      "tin": "1000009GST001",
+      "taxpayerName": "Fintech Maldives Innovations Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "document": {
+      "fileName": "aws_cloud_management_fee.pdf",
+      "documentType": "SUPPLIER_INVOICE",
+      "supplierName": "Amazon Web Services Inc.",
+      "invoiceNumber": "AWS-2026-9021",
+      "issueDate": "2026-06-10",
+      "currency": "USD",
+      "exchangeRate": 15.42,
+      "subtotal": 3000,
+      "gstAmount": 0,
+      "totalAmount": 3000
+    }
+  },
+  "expectedClassifications": {
+    "documentType": "SUPPLIER_INVOICE",
+    "accountingClassification": "EXPENSE",
+    "gstTreatment": "NO_INPUT_TAX",
+    "incomeTaxTreatment": "DEDUCTIBLE"
+  },
+  "expectedCalculations": {
+    "whtGrossAmount": 46260,
+    "whtRate": 0.1,
+    "whtAmountWithheld": 4626,
+    "whtNetAmountPaid": 41634,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_302",
+    "boxValues": {
+      "gross_technical_payments": 46260,
+      "tax_withheld_at_10pct": 4626
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "5d8c17e715f988d9790b378626d68742592549d46feb622aff82d2585d4ec7aa"
+}

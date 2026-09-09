@@ -18,6 +18,9 @@ import { IncomeTaxModal } from "./components/IncomeTaxModal";
 import { RevenueManagementModal } from "./components/RevenueManagementModal";
 import { FixedAssetRegisterModal } from "./components/FixedAssetRegisterModal";
 import { TaxReviewDashboard } from "./components/TaxReviewDashboard";
+import { GstReturnModal } from "./components/GstReturnModal";
+import { NwtModal } from "./components/NwtModal";
+import { ComplianceDashboardModal } from "./components/compliance/ComplianceDashboardModal";
 import { BillRecord, DashboardSummary, AuthUser, Outlet } from "./types";
 
 export default function App() {
@@ -50,6 +53,9 @@ export default function App() {
   const [isOutletsModalOpen, setIsOutletsModalOpen] = useState(false);
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [isIncomeTaxOpen, setIsIncomeTaxOpen] = useState(false);
+  const [isComplianceOpen, setIsComplianceOpen] = useState(false);
+  const [isGstReturnsOpen, setIsGstReturnsOpen] = useState(false);
+  const [isNwtReturnsOpen, setIsNwtReturnsOpen] = useState(false);
   const [isRevenueOpen, setIsRevenueOpen] = useState(false);
   const [isAssetsOpen, setIsAssetsOpen] = useState(false);
 
@@ -282,7 +288,10 @@ export default function App() {
         onOpenUsersModal={() => setIsUsersModalOpen(true)}
         onOpenRevenue={() => setIsRevenueOpen(true)}
         onOpenAssets={() => setIsAssetsOpen(true)}
+        onOpenGstReturns={() => setIsGstReturnsOpen(true)}
+        onOpenNwtReturns={() => setIsNwtReturnsOpen(true)}
         onOpenIncomeTax={() => setIsIncomeTaxOpen(true)}
+        onOpenCompliance={() => setIsComplianceOpen(true)}
         onLogout={handleLogout}
       />
 
@@ -420,6 +429,43 @@ export default function App() {
           onClose={() => setIsIncomeTaxOpen(false)}
           currentUser={currentUser}
           outlets={outlets}
+        />
+      )}
+
+      {isGstReturnsOpen && (
+        <GstReturnModal
+          isOpen={isGstReturnsOpen}
+          onClose={() => setIsGstReturnsOpen(false)}
+          currentUser={currentUser}
+          outlets={outlets}
+        />
+      )}
+
+      {isNwtReturnsOpen && (
+        <NwtModal
+          isOpen={isNwtReturnsOpen}
+          onClose={() => setIsNwtReturnsOpen(false)}
+          currentUser={currentUser}
+          outlets={outlets}
+        />
+      )}
+
+      {isComplianceOpen && (
+        <ComplianceDashboardModal
+          isOpen={isComplianceOpen}
+          onClose={() => setIsComplianceOpen(false)}
+          currentUser={currentUser}
+          outlets={outlets}
+          selectedOutlet={selectedOutlet}
+          selectedQuarter={selectedQuarter}
+          authToken={authToken}
+          onNavigateToBill={(billId: string) => {
+            const found = bills.find((b) => b.id === billId);
+            if (found) {
+              setActiveReviewBill(found);
+              setIsReviewOpen(true);
+            }
+          }}
         />
       )}
     </div>

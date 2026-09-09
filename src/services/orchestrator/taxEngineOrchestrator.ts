@@ -273,7 +273,7 @@ export async function runFullTaxPipeline(params: FullPipelineParams): Promise<Fu
     const nonResidentTxList = persistedTransactions.filter((tx) => {
       const cat = (tx.accountingCategory || '').toLowerCase();
       const desc = (tx.description || '').toLowerCase();
-      const vendor = ((tx as any).vendorName || (tx as any).supplierName || '').toLowerCase();
+      const vendor = ((tx as any).supplierOrCustomer || (tx as any).vendorName || (tx as any).supplierName || '').toLowerCase();
       const txAny = tx as any;
       const isForeignCurrency = txAny.currency && txAny.currency !== 'MVR';
       const isPayeeMatch = params.nonResidentPayees?.some((p) =>
@@ -284,12 +284,15 @@ export async function runFullTaxPipeline(params: FullPipelineParams): Promise<Fu
         Boolean(txAny.isNonResident) ||
         isForeignCurrency ||
         isPayeeMatch ||
+        cat.includes('technology') ||
         cat.includes('software') ||
+        cat.includes('cloud') ||
         cat.includes('consultancy') ||
         cat.includes('royalty') ||
         cat.includes('management') ||
         desc.includes('foreign') ||
         desc.includes('aws') ||
+        desc.includes('amazon') ||
         desc.includes('adobe')
       );
     });

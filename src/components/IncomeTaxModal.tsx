@@ -16,6 +16,10 @@ import {
   PieChart
 } from "lucide-react";
 import { Mira604Summary, RevenueRecord, MiraSchedule1Category } from "../types";
+import { TaxExplainabilityModal } from "./tax/TaxExplainabilityModal";
+import { TaxCalculationExplanation } from "../types/explainability";
+import { defaultTaxExplainabilityEngine } from "../services/explainability/taxExplainabilityEngine";
+import { defaultIncomeTaxEngine } from "../services/tax/incomeTaxEngineService";
 
 interface IncomeTaxModalProps {
   isOpen: boolean;
@@ -44,6 +48,65 @@ export const IncomeTaxModal: React.FC<IncomeTaxModalProps> = ({
   const [revAmount, setRevAmount] = useState("");
   const [revPaymentMethod, setRevPaymentMethod] = useState<RevenueRecord["payment_method"]>("Card / POS");
   const [savingRev, setSavingRev] = useState(false);
+
+  // Phase 43: Tax Explainability State
+  const [showExplanationModal, setShowExplanationModal] = useState(false);
+  const [currentExplanation, setCurrentExplanation] = useState<TaxCalculationExplanation | null>(null);
+
+  const handleOpenExplanation = async () => {
+    if (!summary) return;
+    try {
+      const isCompany = summary.taxpayer_profile === "COMPANY";
+      const adjustments = summary.non_deductible_addbacks > 0
+        ? [
+            {
+              id: 'ADJ-MIRA-604',
+              code: 'NON_DED_EXPENSE',
+              description: 'Non-deductible expenses identified under Schedule 1',
+              type: 'ADD_BACK' as const,
+              amount: summary.non_deductible_addbacks,
+              legalReference: 'Income Tax Act Section 32 & 33 (Non-Deductible Business Expenses)'
+            }
+          ]
+        : [];
+
+      const payload = {
+        tenantId: 'TENANT-DEFAULT',
+        tin: '1000001GST001',
+        entityName: isCompany ? 'Company (Pvt Ltd)' : 'Sole Proprietorship',
+        taxpayerType: isCompany ? 'COMPANY' : 'INDIVIDUAL',
+        taxYear: selectedYear,
+        accountingProfit: summary.net_accounting_profit,
+        accountingDays: 365,
+        groupFactor: 1,
+        adjustments,
+        capitalAllowanceClaimed: summary.total_capital_allowances || 0
+      };
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
+      const res = await fetch('/api/tax/explain/income-tax', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentExplanation(data.explanation);
+        setShowExplanationModal(true);
+      } else {
+        // Fallback to client-side deterministic engine calculation
+        const finalCalc = defaultIncomeTaxEngine.calculateFinalTaxPayable(payload as any);
+        const exp = finalCalc.explanation || defaultTaxExplainabilityEngine.generateIncomeTaxExplanation(payload as any, finalCalc);
+        setCurrentExplanation(exp);
+        setShowExplanationModal(true);
+      }
+    } catch (err) {
+      console.error("Failed to generate tax explanation", err);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -336,6 +399,14 @@ export const IncomeTaxModal: React.FC<IncomeTaxModalProps> = ({
                       <span className="font-bold text-emerald-400 block">Applied Tax Rule:</span>
                       <p>{summary.tax_brackets_applied}</p>
                     </div>
+
+                    <button
+                      onClick={handleOpenExplanation}
+                      className="w-full py-2.5 px-4 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-xl flex items-center justify-center space-x-2 font-medium transition cursor-pointer shadow-sm group"
+                    >
+                      <Calculator className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                      <span>View Statutory Tax Explanation (5-Part Audit Structure)</span>
+                    </button>
                   </div>
                 </div>
               )}
@@ -565,6 +636,13 @@ export const IncomeTaxModal: React.FC<IncomeTaxModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Tax Explainability Modal */}
+      <TaxExplainabilityModal
+        isOpen={showExplanationModal}
+        onClose={() => setShowExplanationModal(false)}
+        explanation={currentExplanation}
+      />
     </div>
   );
 };

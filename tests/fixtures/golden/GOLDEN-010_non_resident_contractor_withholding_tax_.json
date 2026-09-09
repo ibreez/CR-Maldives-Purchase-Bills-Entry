@@ -1,0 +1,63 @@
+{
+  "caseId": "GOLDEN-010",
+  "caseNumber": 10,
+  "title": "Non-Resident Contractor Withholding Tax (5%)",
+  "description": "Payment to non-resident international engineering contractor subject to statutory 5% Withholding Tax under Section 55 ITA.",
+  "category": "NWT",
+  "regulatoryReferences": [
+    "Income Tax Act (Law No. 25/2019) Section 55(a)(4) (Payments to Non-Resident Contractors)",
+    "MIRA Withholding Tax Regulations"
+  ],
+  "effectiveDate": "2026-07-20",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-010",
+      "tin": "1000010GST001",
+      "taxpayerName": "Island Power Infrastructure Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "document": {
+      "fileName": "singapore_contractor_installation.pdf",
+      "documentType": "SUPPLIER_INVOICE",
+      "supplierName": "Jurong Marine Engineering Pte Ltd",
+      "invoiceNumber": "JURONG-2026-08",
+      "issueDate": "2026-07-20",
+      "currency": "USD",
+      "exchangeRate": 15.42,
+      "subtotal": 10000,
+      "gstAmount": 0,
+      "totalAmount": 10000
+    }
+  },
+  "expectedClassifications": {
+    "documentType": "SUPPLIER_INVOICE",
+    "accountingClassification": "EXPENSE",
+    "gstTreatment": "NO_INPUT_TAX",
+    "incomeTaxTreatment": "DEDUCTIBLE"
+  },
+  "expectedCalculations": {
+    "whtGrossAmount": 154200,
+    "whtRate": 0.05,
+    "whtAmountWithheld": 7710,
+    "whtNetAmountPaid": 146490,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_302",
+    "boxValues": {
+      "contractor_gross_payments": 154200,
+      "tax_withheld_at_5pct": 7710
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "a1de0af658175ebb29edc02a329929403b5ff07a443a3ef2a906752dd9c8fc0e"
+}

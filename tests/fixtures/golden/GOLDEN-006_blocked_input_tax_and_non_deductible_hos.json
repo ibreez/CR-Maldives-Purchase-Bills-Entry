@@ -1,0 +1,68 @@
+{
+  "caseId": "GOLDEN-006",
+  "caseNumber": 6,
+  "title": "Blocked Input Tax and Non-Deductible Hospitality Add-Back",
+  "description": "Staff hospitality and entertainment expense where GST input tax is statutorily blocked and full gross amount is added back for Income Tax.",
+  "category": "GST",
+  "regulatoryReferences": [
+    "GST Regulation Section 43 (Blocked Input Tax on Entertainment & Hospitality)",
+    "Income Tax Act (Law No. 25/2019) Section 11(a) (Non-Deductible Hospitality/Entertainment)"
+  ],
+  "effectiveDate": "2026-05-12",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-006",
+      "tin": "1000006GST001",
+      "taxpayerName": "Horizon Financial Group Pvt Ltd",
+      "businessType": "COMPANY",
+      "sector": "GENERAL",
+      "isGstRegistered": true,
+      "taxYear": 2026
+    },
+    "document": {
+      "fileName": "luxury_client_dinner_receipt.pdf",
+      "documentType": "SUPPLIER_INVOICE",
+      "supplierName": "The Pearl Bistro Malé",
+      "supplierTin": "1009999GST001",
+      "invoiceNumber": "DIN-2026-4401",
+      "issueDate": "2026-05-12",
+      "currency": "MVR",
+      "subtotal": 10000,
+      "gstAmount": 800,
+      "totalAmount": 10800
+    }
+  },
+  "expectedClassifications": {
+    "documentType": "SUPPLIER_INVOICE",
+    "accountingClassification": "EXPENSE",
+    "accountingCategory": "other_expenses.entertainment",
+    "gstTreatment": "NO_INPUT_TAX",
+    "incomeTaxTreatment": "NON_DEDUCTIBLE",
+    "miraCategory": "other_expenses",
+    "taxRate": 0.08
+  },
+  "expectedCalculations": {
+    "subtotal": 10000,
+    "gstAmount": 800,
+    "totalAmount": 10800,
+    "claimableInputTax": 0,
+    "blockedInputTax": 800,
+    "taxAdjustmentsAddBack": 10800,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_205",
+    "boxValues": {
+      "box21_input_tax_claimed": 0,
+      "box22_blocked_input_tax": 800
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "a3f52c9fef4a76ee7b183bcf42d0311b6d50d3a853b1c355b623bf4eae9ac076"
+}

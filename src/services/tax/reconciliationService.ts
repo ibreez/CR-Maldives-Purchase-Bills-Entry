@@ -208,14 +208,25 @@ export function reconcileTaxYear(
   for (const tx of transactions) {
     const cat = (tx.accountingCategory || '').toLowerCase();
     const desc = (tx.description || '').toLowerCase();
+    const vendor = ((tx as any).supplierOrCustomer || (tx as any).vendorName || (tx as any).supplierName || '').toLowerCase();
+    const txAny = tx as any;
+    const isForeignCurrency = txAny.currency && txAny.currency !== 'MVR';
+
     if (
+      Boolean(txAny.isNonResident) ||
+      isForeignCurrency ||
+      cat.includes('technology') ||
       cat.includes('software') ||
+      cat.includes('cloud') ||
       cat.includes('consultancy') ||
       cat.includes('royalty') ||
       cat.includes('management') ||
       desc.includes('foreign') ||
       desc.includes('aws') ||
-      desc.includes('adobe')
+      desc.includes('amazon') ||
+      desc.includes('adobe') ||
+      vendor.includes('amazon') ||
+      vendor.includes('aws')
     ) {
       totalWhtLedger += Number(tx.amount || 0);
     }

@@ -1,0 +1,64 @@
+{
+  "caseId": "GOLDEN-004",
+  "caseNumber": 4,
+  "title": "Tourism GST 17% Regime (Effective 2025-07-01 Under Act No. 12/2024)",
+  "description": "Tourism sector transaction rendered on or after 2025-07-01 asserting automatic statutory transition to 17% TGST rate.",
+  "category": "GST",
+  "regulatoryReferences": [
+    "GST Act Amendment (Act No. 12/2024) Section 3",
+    "MIRA Ruling on Tourism GST Rate Increase (Effective 1 July 2025)"
+  ],
+  "effectiveDate": "2025-08-15",
+  "inputs": {
+    "taxpayer": {
+      "tenantId": "TENANT-GOLDEN-004",
+      "tin": "1000004GST001",
+      "taxpayerName": "Fuvahmulah Dive Sanctuary Retreat",
+      "businessType": "COMPANY",
+      "sector": "TOURISM",
+      "isGstRegistered": true,
+      "taxYear": 2025
+    },
+    "document": {
+      "fileName": "villa_stay_august_2025.pdf",
+      "documentType": "SUPPLIER_INVOICE",
+      "supplierName": "Fuvahmulah Dive Sanctuary Retreat",
+      "supplierTin": "1000004GST001",
+      "invoiceNumber": "INV-2025-7711",
+      "issueDate": "2025-08-15",
+      "currency": "MVR",
+      "subtotal": 50000,
+      "gstAmount": 8500,
+      "totalAmount": 58500
+    }
+  },
+  "expectedClassifications": {
+    "documentType": "SUPPLIER_INVOICE",
+    "accountingClassification": "REVENUE",
+    "gstTreatment": "STANDARD_RATED",
+    "taxRate": 0.17
+  },
+  "expectedCalculations": {
+    "taxableAmount": 50000,
+    "gstAmount": 8500,
+    "totalAmount": 58500,
+    "outputGst": 8500,
+    "journalBalanceVariance": 0
+  },
+  "expectedReturnValues": {
+    "primaryForm": "MIRA_206",
+    "boxValues": {
+      "box10_tgst_taxable_supplies": 50000,
+      "box11_tgst_rate": 0.17,
+      "box12_tgst_output_tax": 8500
+    }
+  },
+  "expectedReconciliationState": {
+    "isValid": true,
+    "discrepanciesCount": 0,
+    "glBalanced": true,
+    "auditHashChainValid": true,
+    "isFilingReady": true
+  },
+  "immutableSha256Checksum": "d2df0987443c8fbad3ccbcc559e13c41d5683e2dcf8beaa54bba40a9ea5f8f18"
+}
