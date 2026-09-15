@@ -688,8 +688,8 @@ export class GstEngineService {
 
   /**
    * Reconciles GST Transactions to the General Ledger (GL) accounts:
-   * - Account 2100 (GST Output Tax Payable)
-   * - Account 1400 (GST Input Tax Claimable)
+   * - Account 2200-GST-OUTPUT-TAX (GST Output Tax Payable)
+   * - Account 2100-GST-INPUT-TAX (GST Input Tax Claimable)
    */
   public async reconcileGstToGl(params: {
     tenantId: string;
@@ -723,7 +723,7 @@ export class GstEngineService {
       }
     }
 
-    // Fetch GL Journal Lines for 2100 and 1400
+    // Fetch GL Journal Lines for 2200-GST-OUTPUT-TAX and 2100-GST-INPUT-TAX (including legacy aliases)
     const glLines = await prisma.journalLine.findMany({
       where: {
         journal: {
@@ -734,7 +734,7 @@ export class GstEngineService {
           }
         },
         accountCode: {
-          in: ['2100', '1400']
+          in: ['2200-GST-OUTPUT-TAX', '2100-GST-INPUT-TAX', '2200', '2100', '1400']
         }
       }
     });
@@ -745,10 +745,13 @@ export class GstEngineService {
     for (const line of glLines) {
       const debit = Number(line.debit);
       const credit = Number(line.credit);
-      if (line.accountCode === '2100') {
+      if (line.accountCode === '2200-GST-OUTPUT-TAX' || line.accountCode === '2200') {
         glOutputTaxBalance += (credit - debit);
-      } else if (line.accountCode === '1400') {
+      } else if (line.accountCode === '2100-GST-INPUT-TAX' || line.accountCode === '1400') {
         glInputTaxBalance += (debit - credit);
+      } else if (line.accountCode === '2100') {
+        // Fallback for legacy 2100 if used as output tax
+        glOutputTaxBalance += (credit - debit);
       }
     }
 
@@ -760,13 +763,13 @@ export class GstEngineService {
 
     if (outputTaxVariance >= 0.05) {
       discrepancies.push(
-        `Output GST variance of MVR ${outputTaxVariance.toFixed(2)} between GST transactions (MVR ${gstTransactionsTotalOutputTax.toFixed(2)}) and GL Account 2100 (MVR ${glOutputTaxBalance.toFixed(2)})`
+        `Output GST variance of MVR ${outputTaxVariance.toFixed(2)} between GST transactions (MVR ${gstTransactionsTotalOutputTax.toFixed(2)}) and GL Account 2200-GST-OUTPUT-TAX (MVR ${glOutputTaxBalance.toFixed(2)})`
       );
     }
 
     if (inputTaxVariance >= 0.05) {
       discrepancies.push(
-        `Input GST variance of MVR ${inputTaxVariance.toFixed(2)} between GST transactions (MVR ${gstTransactionsTotalInputTax.toFixed(2)}) and GL Account 1400 (MVR ${glInputTaxBalance.toFixed(2)})`
+        `Input GST variance of MVR ${inputTaxVariance.toFixed(2)} between GST transactions (MVR ${gstTransactionsTotalInputTax.toFixed(2)}) and GL Account 2100-GST-INPUT-TAX (MVR ${glInputTaxBalance.toFixed(2)})`
       );
     }
 

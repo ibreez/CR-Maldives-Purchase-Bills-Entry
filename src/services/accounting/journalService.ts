@@ -9,12 +9,15 @@ import {
  * Standard Chart of Accounts Mapping Helpers
  */
 export const STANDARD_ACCOUNTS = {
+  CASH: { code: '1000-CASH-ON-HAND', name: 'Cash on Hand' },
+  BANK_MVR: { code: '1010-BANK-MVR', name: 'Bank MVR Account' },
   BANK: { code: '1000-BANK-ACCOUNT', name: 'Cash and Bank' },
   ACCOUNTS_RECEIVABLE: { code: '1100-ACCOUNTS-RECEIVABLE', name: 'Accounts Receivable' },
   FIXED_ASSETS: { code: '1500-FIXED-ASSET-REGISTER', name: 'Fixed Assets Register' },
   ACCOUNTS_PAYABLE: { code: '2000-ACCOUNTS-PAYABLE', name: 'Accounts Payable' },
   GST_INPUT_TAX: { code: '2100-GST-INPUT-TAX', name: 'GST Input Tax Recoverable' },
   GST_OUTPUT_TAX: { code: '2200-GST-OUTPUT-TAX', name: 'GST Output Tax Payable' },
+  GST_OUTPUT: { code: '2200-GST-OUTPUT-TAX', name: 'GST Output Tax Payable' },
   REVENUE: { code: '4000-OPERATING-REVENUE', name: 'Operating Revenue' },
   COST_OF_SALES: { code: '5000-COST-OF-SALES', name: 'Cost of Sales' },
   GENERAL_EXPENSE: { code: '5200-OPERATING-EXPENSES', name: 'Operating Expenses' },

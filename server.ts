@@ -39,7 +39,7 @@ import {
   validateDtaaCertificate,
   buildNwtPeriod
 } from "./src/services/wht/index.js";
-import { defaultIncomeTaxEngine, defaultTaxExplainabilityEngine } from "./src/services/tax/index.js";
+import { defaultIncomeTaxEngine, defaultTaxExplainabilityEngine, MIRA604IntegrationService } from "./src/services/tax/index.js";
 import { ComplianceDashboardService } from "./src/services/compliance/index.js";
 import {
   PreFilingControlEngine,
@@ -53,6 +53,14 @@ import {
   RegulatorySnapshotService,
   RegulatoryRegressionEngine
 } from "./src/regulatory/index.js";
+import {
+  RevenuePostingService,
+  RevenuePersistenceService,
+  RevenueTraceService,
+  RevenueGstService
+} from "./src/services/revenue/index.js";
+import { GstTransactionInput, GstTreatment, GstTransactionType } from "./src/types/gst.js";
+import { RevenueReconciliationService } from "./src/services/reconciliation/index.js";
 import { prisma } from "./src/db/client.js";
 import cookieParser from "cookie-parser";
 import {
@@ -2946,18 +2954,79 @@ app.post("/api/gst/calculate", requireAuth, (req, res) => {
 });
 
 // POST /api/gst/mira205 - Generate official MIRA 205 General Sector Return
-app.post("/api/gst/mira205", requireAuth, (req, res) => {
+app.post("/api/gst/mira205", requireAuth, async (req, res) => {
   try {
+    const user = (req as any).user as AuthUser;
     const { transactions, taxpayer, period, previousExcessCredit } = req.body;
+    const effectivePeriod = period || {
+      periodName: `${new Date().getFullYear()}-M01`,
+      startDate: `${new Date().getFullYear()}-01-01`,
+      endDate: `${new Date().getFullYear()}-01-31`,
+      taxYear: new Date().getFullYear()
+    };
+
+    let effectiveTransactions: GstTransactionInput[] = transactions;
+    if (!effectiveTransactions || effectiveTransactions.length === 0) {
+      const pStart = new Date(effectivePeriod.startDate);
+      const pEnd = new Date(effectivePeriod.endDate.includes("T") ? effectivePeriod.endDate : `${effectivePeriod.endDate}T23:59:59.999Z`);
+
+      const dbGstTxs = await prisma.gSTTransaction.findMany({
+        where: {
+          sector: "GENERAL",
+          transactionDate: {
+            gte: pStart,
+            lte: pEnd
+          }
+        },
+        include: {
+          revenueTransaction: true,
+          invoice: true
+        }
+      });
+
+      effectiveTransactions = dbGstTxs.map((row): GstTransactionInput => {
+        const isOutput = !row.isInputTaxClaimable || !!row.revenueTransaction || !row.invoiceId;
+        const rev = row.revenueTransaction;
+        let treatment: GstTreatment = "STANDARD_RATED";
+        let txType: GstTransactionType = isOutput ? "OUTPUT_TAX" : "INPUT_TAX";
+
+        if (rev) {
+          if (rev.gstClassification === "ZERO_RATED") {
+            treatment = "ZERO_RATED";
+            txType = "ZERO_RATED_SUPPLY";
+          } else if (rev.gstClassification === "EXEMPT") {
+            treatment = "EXEMPT";
+            txType = "EXEMPT_SUPPLY";
+          } else if (rev.gstClassification === "OUT_OF_SCOPE") {
+            treatment = "OUT_OF_SCOPE";
+            txType = "OUT_OF_SCOPE";
+          }
+        } else if (!isOutput) {
+          treatment = "GENERAL_INPUT_TAX";
+        }
+
+        return {
+          tenantId: row.tenantId,
+          invoiceId: row.invoiceId || undefined,
+          gstPeriodId: row.gstPeriodId || undefined,
+          transactionDate: row.transactionDate,
+          sector: "GENERAL",
+          transactionType: txType,
+          treatment,
+          description: rev?.description || (row.invoice?.invoiceNumber ? `Invoice ${row.invoice.invoiceNumber}` : (isOutput ? "Revenue Sales" : "Purchase Invoice")),
+          taxableAmount: Number(row.taxableAmount.toString()),
+          gstRate: Number(row.gstRate.toString()),
+          gstAmount: Number(row.gstAmount.toString()),
+          isInputTaxClaimable: row.isInputTaxClaimable,
+          sourceDocumentNumber: rev?.id || row.invoice?.invoiceNumber || row.id
+        };
+      });
+    }
+
     const returnData = canonicalGstEngine.generateMira205Return({
-      transactions: transactions || [],
+      transactions: effectiveTransactions,
       taxpayer: taxpayer || { tin: "1000000GST001", name: "Registered General Taxpayer" },
-      period: period || {
-        periodName: `${new Date().getFullYear()}-M01`,
-        startDate: `${new Date().getFullYear()}-01-01`,
-        endDate: `${new Date().getFullYear()}-01-31`,
-        taxYear: new Date().getFullYear()
-      },
+      period: effectivePeriod,
       previousExcessCredit: previousExcessCredit ? Number(previousExcessCredit) : 0
     });
     res.json({ success: true, mira205: returnData });
@@ -2967,23 +3036,84 @@ app.post("/api/gst/mira205", requireAuth, (req, res) => {
 });
 
 // POST /api/gst/mira206 - Generate official MIRA 206 Tourism Sector Return
-app.post("/api/gst/mira206", requireAuth, (req, res) => {
+app.post("/api/gst/mira206", requireAuth, async (req, res) => {
   try {
+    const user = (req as any).user as AuthUser;
     const { transactions, taxpayer, period, previousExcessCredit } = req.body;
+    const effectivePeriod = period || {
+      periodName: `${new Date().getFullYear()}-M01`,
+      startDate: `${new Date().getFullYear()}-01-01`,
+      endDate: `${new Date().getFullYear()}-01-31`,
+      taxYear: new Date().getFullYear()
+    };
+
+    let effectiveTransactions: GstTransactionInput[] = transactions;
+    if (!effectiveTransactions || effectiveTransactions.length === 0) {
+      const pStart = new Date(effectivePeriod.startDate);
+      const pEnd = new Date(effectivePeriod.endDate.includes("T") ? effectivePeriod.endDate : `${effectivePeriod.endDate}T23:59:59.999Z`);
+
+      const dbGstTxs = await prisma.gSTTransaction.findMany({
+        where: {
+          sector: "TOURISM",
+          transactionDate: {
+            gte: pStart,
+            lte: pEnd
+          }
+        },
+        include: {
+          revenueTransaction: true,
+          invoice: true
+        }
+      });
+
+      effectiveTransactions = dbGstTxs.map((row): GstTransactionInput => {
+        const isOutput = !row.isInputTaxClaimable || !!row.revenueTransaction || !row.invoiceId;
+        const rev = row.revenueTransaction;
+        let treatment: GstTreatment = "STANDARD_RATED";
+        let txType: GstTransactionType = isOutput ? "OUTPUT_TAX" : "INPUT_TAX";
+
+        if (rev) {
+          if (rev.gstClassification === "ZERO_RATED") {
+            treatment = "ZERO_RATED";
+            txType = "ZERO_RATED_SUPPLY";
+          } else if (rev.gstClassification === "EXEMPT") {
+            treatment = "EXEMPT";
+            txType = "EXEMPT_SUPPLY";
+          } else if (rev.gstClassification === "OUT_OF_SCOPE") {
+            treatment = "OUT_OF_SCOPE";
+            txType = "OUT_OF_SCOPE";
+          }
+        } else if (!isOutput) {
+          treatment = "GENERAL_INPUT_TAX";
+        }
+
+        return {
+          tenantId: row.tenantId,
+          invoiceId: row.invoiceId || undefined,
+          gstPeriodId: row.gstPeriodId || undefined,
+          transactionDate: row.transactionDate,
+          sector: "TOURISM",
+          transactionType: txType,
+          treatment,
+          description: rev?.description || (row.invoice?.invoiceNumber ? `Invoice ${row.invoice.invoiceNumber}` : (isOutput ? "Tourism Revenue Sales" : "Tourism Purchase Invoice")),
+          taxableAmount: Number(row.taxableAmount.toString()),
+          gstRate: Number(row.gstRate.toString()),
+          gstAmount: Number(row.gstAmount.toString()),
+          isInputTaxClaimable: row.isInputTaxClaimable,
+          sourceDocumentNumber: rev?.id || row.invoice?.invoiceNumber || row.id
+        };
+      });
+    }
+
     const returnData = canonicalGstEngine.generateMira206Return({
-      transactions: transactions || [],
+      transactions: effectiveTransactions,
       taxpayer: taxpayer || {
         tin: "2000000GST001",
         name: "Registered Tourism Taxpayer",
         tourismEstablishmentName: "Resort & Spa",
         operatingLicenseNumber: "MOT-2025-001"
       },
-      period: period || {
-        periodName: `${new Date().getFullYear()}-M01`,
-        startDate: `${new Date().getFullYear()}-01-01`,
-        endDate: `${new Date().getFullYear()}-01-31`,
-        taxYear: new Date().getFullYear()
-      },
+      period: effectivePeriod,
       previousExcessCredit: previousExcessCredit ? Number(previousExcessCredit) : 0
     });
     res.json({ success: true, mira206: returnData });
@@ -3148,6 +3278,155 @@ app.post("/api/income-tax/calculate-final", requireAuth, (req, res) => {
   } catch (error: any) {
     console.error("Final income tax calculation error:", error);
     res.status(400).json({ error: error.message || "Failed to calculate final income tax." });
+  }
+});
+
+// ================= MILESTONE 7: AUTHORITATIVE MIRA 604 & INCOME TAX ENDPOINTS =================
+
+// Helper to extract UserSession from request
+function getIncomeTaxUserSession(req: express.Request): any {
+  const user = (req as any).user;
+  const tenantId = (req.headers["x-tenant-id"] as string) || (req.query.tenantId as string) || (req.body?.tenantId as string) || user?.tenantId || "COMPANY-001";
+  const role = user?.role === "super_admin" ? "CLIENT_ADMIN" : (user?.role?.toUpperCase() || "CLIENT_ADMIN");
+  return {
+    userId: user?.id || user?.userId || "USR-SYSTEM",
+    tenantId,
+    role
+  };
+}
+
+// GET /api/income-tax/:taxYear - Fetch persisted return or current calculation
+app.get("/api/income-tax/:taxYear", requireAuth, async (req, res) => {
+  try {
+    const taxYear = parseInt(req.params.taxYear, 10);
+    const session = getIncomeTaxUserSession(req);
+    const tenantId = (req.query.tenantId as string) || session.tenantId;
+
+    let result = await MIRA604IntegrationService.getReturn(tenantId, taxYear);
+    if (!result) {
+      // Calculate draft if not yet persisted
+      result = await MIRA604IntegrationService.calculateAndPrepareReturn(
+        {
+          tenantId,
+          taxYear,
+          tin: req.query.tin as string,
+          taxpayerName: req.query.taxpayerName as string,
+          entityType: req.query.entityType as any
+        },
+        session
+      );
+    }
+
+    res.json({ success: true, return: result });
+  } catch (error: any) {
+    console.error("Get income tax return error:", error);
+    res.status(400).json({ error: error.message || "Failed to fetch income tax return." });
+  }
+});
+
+// POST /api/income-tax/:taxYear/calculate - Calculate, reconcile, and persist MIRA 604
+app.post("/api/income-tax/:taxYear/calculate", requireAuth, async (req, res) => {
+  try {
+    const taxYear = parseInt(req.params.taxYear, 10);
+    const session = getIncomeTaxUserSession(req);
+    const tenantId = req.body?.tenantId || session.tenantId;
+
+    const result = await MIRA604IntegrationService.calculateAndPrepareReturn(
+      {
+        ...req.body,
+        tenantId,
+        taxYear
+      },
+      session
+    );
+
+    res.json({ success: true, return: result });
+  } catch (error: any) {
+    console.error("Calculate income tax error:", error);
+    res.status(400).json({ error: error.message || "Failed to calculate income tax return." });
+  }
+});
+
+// POST /api/income-tax/:taxYear/approve - Approve calculated return (TAX_MANAGER / CLIENT_ADMIN)
+app.post("/api/income-tax/:taxYear/approve", requireAuth, async (req, res) => {
+  try {
+    const taxYear = parseInt(req.params.taxYear, 10);
+    const session = getIncomeTaxUserSession(req);
+    const tenantId = req.body?.tenantId || session.tenantId;
+
+    const result = await MIRA604IntegrationService.approveReturn(
+      tenantId,
+      taxYear,
+      session,
+      { notes: req.body?.notes }
+    );
+
+    res.json({ success: true, message: "Tax return approved successfully.", return: result });
+  } catch (error: any) {
+    console.error("Approve income tax error:", error);
+    const status = error.message?.includes("Unauthorized") ? 403 : 400;
+    res.status(status).json({ error: error.message || "Failed to approve income tax return." });
+  }
+});
+
+// POST /api/income-tax/:taxYear/finalize - Finalize and seal immutable return
+app.post("/api/income-tax/:taxYear/finalize", requireAuth, async (req, res) => {
+  try {
+    const taxYear = parseInt(req.params.taxYear, 10);
+    const session = getIncomeTaxUserSession(req);
+    const tenantId = req.body?.tenantId || session.tenantId;
+
+    const result = await MIRA604IntegrationService.finalizeReturn(
+      tenantId,
+      taxYear,
+      session,
+      { notes: req.body?.notes }
+    );
+
+    res.json({ success: true, message: "Tax return finalized and sealed as immutable.", return: result });
+  } catch (error: any) {
+    console.error("Finalize income tax error:", error);
+    const status = error.message?.includes("Unauthorized") ? 403 : 400;
+    res.status(status).json({ error: error.message || "Failed to finalize income tax return." });
+  }
+});
+
+// GET /api/income-tax/:taxYear/trace - Retrieve transaction-to-box trace
+app.get("/api/income-tax/:taxYear/trace", requireAuth, async (req, res) => {
+  try {
+    const taxYear = parseInt(req.params.taxYear, 10);
+    const session = getIncomeTaxUserSession(req);
+    const tenantId = (req.query.tenantId as string) || session.tenantId;
+
+    let trace = await MIRA604IntegrationService.getTrace(tenantId, taxYear);
+    if (!trace) {
+      const ret = await MIRA604IntegrationService.calculateAndPrepareReturn({ tenantId, taxYear }, session);
+      trace = ret.trace;
+    }
+
+    res.json({ success: true, trace });
+  } catch (error: any) {
+    console.error("Get income tax trace error:", error);
+    res.status(400).json({ error: error.message || "Failed to retrieve tax trace." });
+  }
+});
+
+// GET /api/income-tax/:taxYear/reconciliation - Retrieve 5-way reconciliation report
+app.get("/api/income-tax/:taxYear/reconciliation", requireAuth, async (req, res) => {
+  try {
+    const taxYear = parseInt(req.params.taxYear, 10);
+    const session = getIncomeTaxUserSession(req);
+    const tenantId = (req.query.tenantId as string) || session.tenantId;
+
+    let ret = await MIRA604IntegrationService.getReturn(tenantId, taxYear);
+    if (!ret) {
+      ret = await MIRA604IntegrationService.calculateAndPrepareReturn({ tenantId, taxYear }, session);
+    }
+
+    res.json({ success: true, reconciliation: ret.reconciliation });
+  } catch (error: any) {
+    console.error("Get income tax reconciliation error:", error);
+    res.status(400).json({ error: error.message || "Failed to retrieve tax reconciliation." });
   }
 });
 
@@ -3365,66 +3644,150 @@ app.post("/api/export/google-sheets", requireAuth, (req, res) => {
 
 // ---------------- REVENUE & INCOME TAX ROUTES ----------------
 
+// Helper to convert RevenueTransaction to frontend-compatible RevenueRecord
+function formatRevenueForClient(r: any): any {
+  const gross = Number(r.grossAmount ?? r.gross_amount ?? r.amount ?? 0);
+  const gst = Number(r.gstAmount ?? r.gst_collected ?? 0);
+  const net = Number(r.netAmount ?? r.net_revenue ?? (gross - gst));
+  const dStr = r.transactionDate || r.date || new Date().toISOString().split("T")[0];
+  const quarterStr = calculateQuarter(dStr);
+  const yearVal = parseInt(quarterStr.split("-")[0], 10) || new Date(dStr).getFullYear();
+
+  return {
+    id: r.id,
+    outlet_id: r.outletId || r.outlet_id || "outlet-1",
+    outlet_name: r.outletName || r.outlet_name || "Main Branch",
+    date: dStr,
+    category: r.category || "POS Sales",
+    gross_amount: gross,
+    gst_collected: gst,
+    net_revenue: net,
+    amount: net,
+    payment_method: r.paymentMethod || r.payment_method || "Card / POS",
+    notes: r.description || r.notes || "Sales Revenue",
+    description: r.description || r.notes || "Sales Revenue",
+    quarter: r.quarter || quarterStr,
+    year: r.year || yearVal,
+    status: r.status || "POSTED",
+    journalId: r.journalId,
+    gstTransactionId: r.gstTransactionId,
+    gstRate: r.gstRate,
+    gstRuleId: r.gstRuleId,
+    accountingPeriodId: r.accountingPeriodId || quarterStr,
+    accountingPeriod: {
+      periodName: r.quarter || quarterStr,
+      quarter: r.quarter || quarterStr,
+      year: r.year || yearVal,
+      month: dStr.slice(0, 7)
+    },
+    reversalJournalId: r.reversalJournalId,
+    reversalOfId: r.reversalOfId,
+    reversedById: r.reversedById,
+    correctionNote: r.correctionNote,
+    created_by: r.createdBy || r.created_by || "System",
+    created_at: r.createdAt || r.created_at || new Date().toISOString()
+  };
+}
+
+// GET /api/revenue/reconcile - 4-way revenue reconciliation
+app.get("/api/revenue/reconcile", requireAuth, async (req, res) => {
+  try {
+    const tenantId = (req.query.tenantId as string) || (req as any).user?.tenantId || "COMPANY-001";
+    const report = await RevenueReconciliationService.reconcileRevenue({
+      tenantId,
+      startDate: req.query.startDate as string,
+      endDate: req.query.endDate as string,
+      outletId: req.query.outletId as string,
+      prismaClient: prisma
+    });
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: "Reconciliation failed", details: err.message });
+  }
+});
+
+// GET /api/revenue/:id/trace - Comprehensive audit and accounting trace
+app.get("/api/revenue/:id/trace", requireAuth, async (req, res) => {
+  try {
+    const tenantId = (req.query.tenantId as string) || (req as any).user?.tenantId || "COMPANY-001";
+    const trace = await RevenueTraceService.getDiagnosticTrace(req.params.id, tenantId, prisma);
+    if (!trace) {
+      return res.status(404).json({ error: "Revenue transaction not found for trace." });
+    }
+    res.json(trace);
+  } catch (err: any) {
+    res.status(500).json({ error: "Trace failed", details: err.message });
+  }
+});
+
 // GET /api/revenue - List revenue entries
 app.get("/api/revenue", requireAuth, (req, res) => {
   const user = (req as any).user as AuthUser;
-  let revenues = getRevenues();
+  let revenues = RevenuePersistenceService.getAll("COMPANY-001");
+
+  // Fallback to legacy getRevenues() if persistence is empty
+  if (revenues.length === 0) {
+    const legacy = getRevenues();
+    if (legacy.length > 0) {
+      for (const l of legacy) {
+        RevenuePersistenceService.save(l as any);
+      }
+      revenues = RevenuePersistenceService.getAll("COMPANY-001");
+    }
+  }
+
+  let formatted = revenues.map(formatRevenueForClient);
 
   if (user.role === "outlet_user") {
-    revenues = revenues.filter((r) => r.outlet_id === user.outlet_id);
+    formatted = formatted.filter((r) => r.outlet_id === user.outlet_id);
   } else if (req.query.outlet && req.query.outlet !== "ALL") {
-    revenues = revenues.filter((r) => r.outlet_id === req.query.outlet);
+    formatted = formatted.filter((r) => r.outlet_id === req.query.outlet);
   }
 
   if (req.query.year) {
     const yNum = parseInt(req.query.year as string, 10);
     if (!isNaN(yNum)) {
-      revenues = revenues.filter((r) => (r.year || new Date(r.date).getFullYear()) === yNum);
+      formatted = formatted.filter((r) => (r.year || new Date(r.date).getFullYear()) === yNum);
     }
   }
 
-  // Ensure default/legacy fields populated
-  revenues = revenues.map((r) => {
-    const gross = r.gross_amount ?? r.amount ?? 0;
-    const gst = r.gst_collected ?? 0;
-    const net = r.net_revenue ?? (gross - gst);
-    return {
-      ...r,
-      gross_amount: gross,
-      gst_collected: gst,
-      net_revenue: net,
-      amount: net,
-      notes: r.notes || r.description || "Sales Revenue"
-    };
-  });
-
-  revenues.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  res.json(revenues);
+  formatted.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  res.json(formatted);
 });
 
-// POST /api/revenue - Add a revenue entry (or bulk array)
-app.post("/api/revenue", requireAuth, (req, res) => {
+// GET /api/revenue/:id - Retrieve a single enriched revenue entry
+app.get("/api/revenue/:id", requireAuth, async (req, res) => {
+  const user = (req as any).user as AuthUser;
+  const { id } = req.params;
+  const record = RevenuePersistenceService.getById(id, "COMPANY-001");
+  if (!record) {
+    return res.status(404).json({ error: "Revenue entry not found.", code: "NOT_FOUND" });
+  }
+
+  if (user.role === "outlet_user" && record.outletId !== user.outlet_id) {
+    return res.status(403).json({ error: "Access Denied: Cannot view revenue from another outlet." });
+  }
+
+  res.json(formatRevenueForClient(record));
+});
+
+// POST /api/revenue - Add a revenue entry (or bulk array) with authoritative journal posting
+app.post("/api/revenue", requireAuth, async (req, res) => {
   const user = (req as any).user as AuthUser;
   const outlets = getOutlets();
 
-  const handleSingleEntry = (body: any): RevenueRecord => {
-    const {
-      id,
-      outlet_id,
-      date,
-      category,
-      gross_amount,
-      gst_collected,
-      net_revenue,
-      amount,
-      payment_method,
-      notes,
-      description
-    } = body;
+  const session = {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: (user.role === "super_admin" ? "CLIENT_ADMIN" : "STAFF_ACCOUNTANT") as any,
+    tenantId: "COMPANY-001",
+    permissions: ["POST_JOURNAL", "CREATE_TRANSACTIONS", "REVERSE_TRANSACTIONS", "VIEW_REPORTS", "EXPORT_DATA"] as any
+  };
 
-    let targetOutletId = outlet_id;
-    let targetOutletName = "";
+  const processEntry = async (body: any) => {
+    let targetOutletId = body.outlet_id || body.outletId;
+    let targetOutletName = body.outlet_name || body.outletName;
 
     if (user.role === "outlet_user") {
       targetOutletId = user.outlet_id;
@@ -3434,143 +3797,221 @@ app.post("/api/revenue", requireAuth, (req, res) => {
       targetOutletName = match ? match.name : (outlets[0]?.name || "Main Branch");
     }
 
-    const dStr = date || new Date().toISOString().split("T")[0];
-    const grossVal = Number(gross_amount ?? amount ?? 0);
-    const gstVal = Number(gst_collected ?? 0);
-    const netVal = net_revenue !== undefined ? Number(net_revenue) : (grossVal - gstVal);
+    const dStr = body.date || body.transactionDate || new Date().toISOString().split("T")[0];
+    const grossVal = body.gross_amount ?? body.grossAmount ?? body.amount;
+    const netVal = body.net_revenue ?? body.netAmount;
 
-    const quarterStr = calculateQuarter(dStr);
-    const yearVal = parseInt(quarterStr.split("-")[0], 10) || new Date(dStr).getFullYear();
-
-    return {
-      id: id || ("rev-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6)),
-      outlet_id: targetOutletId,
-      outlet_name: targetOutletName,
-      date: dStr,
-      category: category || "POS Sales",
-      gross_amount: grossVal,
-      gst_collected: gstVal,
-      net_revenue: netVal,
-      amount: netVal,
-      payment_method: payment_method || "Card / POS",
-      notes: notes || description || "Sales Revenue",
-      description: notes || description || "Sales Revenue",
-      quarter: quarterStr,
-      year: yearVal,
-      created_by: user.name,
-      created_at: new Date().toISOString()
-    };
+    return await RevenuePostingService.postRevenue(
+      {
+        tenantId: "COMPANY-001",
+        outletId: targetOutletId,
+        outletName: targetOutletName,
+        transactionDate: dStr,
+        category: body.category || "POS Sales",
+        description: body.description || body.notes || "Sales Revenue",
+        grossAmount: grossVal,
+        netAmount: netVal,
+        amountBasis: body.amountBasis || "GST_INCLUSIVE",
+        sector: body.sector || "GENERAL",
+        gstClassification: body.gstClassification || "TAXABLE",
+        paymentMethod: body.payment_method || body.paymentMethod || "CARD",
+        idempotencyKey: body.idempotencyKey,
+        sourceId: body.sourceId,
+        notes: body.notes || body.description,
+        autoPost: body.autoPost !== false
+      },
+      session,
+      prisma
+    );
   };
 
-  const revenues = getRevenues();
+  try {
+    if (Array.isArray(req.body)) {
+      const results = [];
+      for (const item of req.body) {
+        const created = await processEntry(item);
+        results.push(formatRevenueForClient(created));
+      }
+      return res.status(201).json({ success: true, count: results.length, entries: results });
+    }
 
-  if (Array.isArray(req.body)) {
-    const newEntries = req.body.map((item) => handleSingleEntry(item));
-    const updatedRevenues = [...newEntries, ...revenues];
-    saveRevenues(updatedRevenues);
-    return res.json({ success: true, count: newEntries.length, entries: newEntries });
+    const { date, transactionDate, gross_amount, grossAmount, net_revenue, netAmount, amount } = req.body;
+    const dVal = date || transactionDate;
+    if (!dVal || (gross_amount === undefined && grossAmount === undefined && net_revenue === undefined && netAmount === undefined && amount === undefined)) {
+      return res.status(400).json({ error: "Date and gross_amount/net_revenue are required." });
+    }
+
+    const created = await processEntry(req.body);
+    res.status(201).json(formatRevenueForClient(created));
+  } catch (err: any) {
+    console.error("Error posting revenue:", err);
+    res.status(400).json({ error: err.message || "Failed to post revenue" });
   }
-
-  const { date, gross_amount, net_revenue, amount } = req.body;
-  if (!date || (gross_amount === undefined && net_revenue === undefined && amount === undefined)) {
-    return res.status(400).json({ error: "Date and gross_amount/net_revenue are required." });
-  }
-
-  const newRevenue = handleSingleEntry(req.body);
-  revenues.unshift(newRevenue);
-  saveRevenues(revenues);
-
-  res.json(newRevenue);
 });
 
-// PUT /api/revenue/:id - Edit an existing revenue entry
-app.put("/api/revenue/:id", requireAuth, (req, res) => {
+// PUT /api/revenue/:id - Edit an existing revenue entry (DRAFT or VALIDATED only; POSTED rejected)
+app.put("/api/revenue/:id", requireAuth, async (req, res) => {
   const user = (req as any).user as AuthUser;
   const { id } = req.params;
-  const revenues = getRevenues();
-  const index = revenues.findIndex((r) => r.id === id);
+  const existing = RevenuePersistenceService.getById(id, "COMPANY-001");
 
-  if (index === -1) {
-    return res.status(404).json({ error: "Revenue entry not found." });
+  if (!existing) {
+    return res.status(404).json({ error: "Revenue entry not found.", code: "NOT_FOUND" });
   }
 
-  const existing = revenues[index];
-  if (user.role === "outlet_user" && existing.outlet_id !== user.outlet_id) {
+  if (user.role === "outlet_user" && existing.outletId !== user.outlet_id) {
     return res.status(403).json({ error: "Access Denied: Cannot edit revenue from another outlet." });
   }
 
-  const {
-    outlet_id,
-    date,
-    category,
-    gross_amount,
-    gst_collected,
-    net_revenue,
-    payment_method,
-    notes,
-    description
-  } = req.body;
-
-  const outlets = getOutlets();
-  let targetOutletId = existing.outlet_id;
-  let targetOutletName = existing.outlet_name;
-
-  if (user.role !== "outlet_user" && outlet_id) {
-    targetOutletId = outlet_id;
-    const match = outlets.find((o) => o.id === outlet_id);
-    targetOutletName = match ? match.name : targetOutletName;
+  if (existing.status === "POSTED") {
+    return res.status(400).json({
+      error: "Cannot modify POSTED revenue transaction in place. Financial ledger entries are immutable. Please use the reversal or correction workflow.",
+      code: "TRANSACTION_ALREADY_POSTED"
+    });
   }
 
-  const dStr = date || existing.date;
-  const grossVal = gross_amount !== undefined ? Number(gross_amount) : (existing.gross_amount ?? existing.amount ?? 0);
-  const gstVal = gst_collected !== undefined ? Number(gst_collected) : (existing.gst_collected ?? 0);
-  const netVal = net_revenue !== undefined ? Number(net_revenue) : (grossVal - gstVal);
+  if (existing.status !== "DRAFT" && existing.status !== "VALIDATED") {
+    return res.status(400).json({
+      error: `Cannot modify transaction with status ${existing.status}. Only DRAFT and VALIDATED transactions may be edited.`,
+      code: existing.status === "REVERSED" ? "TRANSACTION_ALREADY_POSTED" : "INVALID_TRANSACTION_STATE"
+    });
+  }
 
-  const quarterStr = calculateQuarter(dStr);
-  const yearVal = parseInt(quarterStr.split("-")[0], 10) || new Date(dStr).getFullYear();
-
-  const updated: RevenueRecord = {
-    ...existing,
-    outlet_id: targetOutletId,
-    outlet_name: targetOutletName,
-    date: dStr,
-    category: category || existing.category,
-    gross_amount: grossVal,
-    gst_collected: gstVal,
-    net_revenue: netVal,
-    amount: netVal,
-    payment_method: payment_method || existing.payment_method,
-    notes: notes || description || existing.notes || existing.description,
-    description: notes || description || existing.description || existing.notes,
-    quarter: quarterStr,
-    year: yearVal
+  const session = {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: (user.role === "super_admin" ? "CLIENT_ADMIN" : "STAFF_ACCOUNTANT") as any,
+    tenantId: "COMPANY-001",
+    permissions: ["POST_JOURNAL", "CREATE_TRANSACTIONS", "REVERSE_TRANSACTIONS", "VIEW_REPORTS", "EXPORT_DATA"] as any
   };
 
-  revenues[index] = updated;
-  saveRevenues(revenues);
-
-  res.json(updated);
+  try {
+    const updated = await RevenuePostingService.updateDraft(id, req.body, session);
+    res.json(formatRevenueForClient(updated));
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
-// DELETE /api/revenue/:id - Delete a revenue entry
+// DELETE /api/revenue/:id - Delete an unposted DRAFT entry (POSTED and REVERSED rejected)
 app.delete("/api/revenue/:id", requireAuth, (req, res) => {
   const user = (req as any).user as AuthUser;
   const { id } = req.params;
-  let revenues = getRevenues();
-  const rev = revenues.find((r) => r.id === id);
+  const existing = RevenuePersistenceService.getById(id, "COMPANY-001");
 
-  if (!rev) {
-    return res.status(404).json({ error: "Revenue record not found" });
+  if (!existing) {
+    return res.status(404).json({ error: "Revenue record not found.", code: "NOT_FOUND" });
   }
 
-  if (user.role === "outlet_user" && rev.outlet_id !== user.outlet_id) {
+  if (user.role === "outlet_user" && existing.outletId !== user.outlet_id) {
     return res.status(403).json({ error: "Access Denied: Cannot delete revenue record from another outlet." });
   }
 
-  revenues = revenues.filter((r) => r.id !== id);
-  saveRevenues(revenues);
+  if (existing.status === "POSTED" || existing.status === "REVERSED") {
+    return res.status(400).json({
+      error: `Cannot delete ${existing.status} revenue transaction. Posted accounting transactions are immutable. Use the reversal workflow to void the transaction.`,
+      code: "CANNOT_DELETE_POSTED_TRANSACTION"
+    });
+  }
 
-  res.json({ success: true, message: "Revenue entry deleted successfully" });
+  if (existing.status !== "DRAFT") {
+    return res.status(400).json({
+      error: `Cannot delete transaction with status ${existing.status}. Only DRAFT transactions may be deleted.`,
+      code: "CANNOT_DELETE_NON_DRAFT"
+    });
+  }
+
+  try {
+    RevenuePostingService.deleteTransaction(id, "COMPANY-001");
+    res.json({ success: true, message: "Revenue draft deleted successfully." });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/revenue/:id/reverse - Formally reverse a posted revenue transaction
+app.post("/api/revenue/:id/reverse", requireAuth, async (req, res) => {
+  const user = (req as any).user as AuthUser;
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  const existing = RevenuePersistenceService.getById(id, "COMPANY-001");
+  if (!existing) {
+    return res.status(404).json({ error: "Revenue transaction not found.", code: "NOT_FOUND" });
+  }
+
+  if (user.role === "outlet_user" && existing.outletId !== user.outlet_id) {
+    return res.status(403).json({ error: "Access Denied: Cannot reverse revenue from another outlet." });
+  }
+
+  const session = {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: (user.role === "super_admin" ? "CLIENT_ADMIN" : "STAFF_ACCOUNTANT") as any,
+    tenantId: "COMPANY-001",
+    permissions: ["POST_JOURNAL", "CREATE_TRANSACTIONS", "REVERSE_TRANSACTIONS", "VIEW_REPORTS", "EXPORT_DATA"] as any
+  };
+
+  try {
+    const reversed = await RevenuePostingService.reverseRevenue(
+      id,
+      reason || "Reversal requested by user",
+      session,
+      prisma
+    );
+    res.json({
+      success: true,
+      message: `Transaction ${id} reversed successfully`,
+      reversedTransaction: formatRevenueForClient(reversed)
+    });
+  } catch (err: any) {
+    console.error("Error reversing revenue:", err);
+    res.status(400).json({ error: err.message || "Failed to reverse revenue" });
+  }
+});
+
+// POST /api/revenue/:id/correct - Atomically reverse and replace a posted revenue transaction
+app.post("/api/revenue/:id/correct", requireAuth, async (req, res) => {
+  const user = (req as any).user as AuthUser;
+  const { id } = req.params;
+
+  const existing = RevenuePersistenceService.getById(id, "COMPANY-001");
+  if (!existing) {
+    return res.status(404).json({ error: "Revenue transaction not found.", code: "NOT_FOUND" });
+  }
+
+  if (user.role === "outlet_user" && existing.outletId !== user.outlet_id) {
+    return res.status(403).json({ error: "Access Denied: Cannot correct revenue from another outlet." });
+  }
+
+  const session = {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: (user.role === "super_admin" ? "CLIENT_ADMIN" : "STAFF_ACCOUNTANT") as any,
+    tenantId: "COMPANY-001",
+    permissions: ["POST_JOURNAL", "CREATE_TRANSACTIONS", "REVERSE_TRANSACTIONS", "VIEW_REPORTS", "EXPORT_DATA"] as any
+  };
+
+  try {
+    const { original, replacement } = await RevenuePostingService.correctRevenue(
+      id,
+      req.body,
+      session,
+      prisma
+    );
+    res.json({
+      success: true,
+      message: `Transaction ${id} corrected. Replacement posted as ${replacement.id}`,
+      original: formatRevenueForClient(original),
+      replacement: formatRevenueForClient(replacement)
+    });
+  } catch (err: any) {
+    console.error("Error correcting revenue:", err);
+    res.status(400).json({ error: err.message || "Failed to correct revenue" });
+  }
 });
 
 // ================= FIXED ASSET REGISTER & CAPITAL ALLOWANCE ROUTES =================

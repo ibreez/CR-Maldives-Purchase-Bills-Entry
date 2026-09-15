@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "token": "501737f1227ee18e5a8aafcedf1cd3a02466a64682a1c48325cb899892d4d2be",
+    "tokenHash": "ed1422200ab18e6871e9e10ac729c49b0b05b8dacf37633e3b82759e5971e983",
+    "userId": "user-ibreez",
+    "tenantId": "DEFAULT-TENANT",
+    "role": "super_admin",
+    "username": "ibreez",
+    "createdAt": "2026-09-13T10:11:20.632Z",
+    "expiresAt": "2026-09-14T10:11:20.632Z",
+    "lastActiveAt": "2026-09-13T10:11:20.632Z"
+  }
+]

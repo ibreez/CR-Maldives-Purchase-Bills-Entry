@@ -335,3 +335,12 @@ export function generateSchedule2CapitalAllowanceSummary(
     generatedAt: new Date().toISOString()
   };
 }
+
+export class CapitalAllowanceService {
+  public static calculateCapitalAllowance = calculateCapitalAllowance;
+  public static calculateBatchCapitalAllowances(assets: any[], taxYear = 2024): MiraSchedule2SummaryReport {
+    return generateSchedule2CapitalAllowanceSummary(assets, taxYear);
+  }
+  public static generateSchedule2CapitalAllowanceSummary = generateSchedule2CapitalAllowanceSummary;
+}
+

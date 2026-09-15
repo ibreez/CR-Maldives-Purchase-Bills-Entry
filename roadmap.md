@@ -1,1901 +1,501 @@
-MIRA Tax & Accounting Engine
-
-
-GLOBAL RULES
-AI_DEVELOPMENT_RULES.md
-ARCHITECTURE.md
-REGULATORY_SOURCES.md
-IMPLEMENTATION_STATUS.md
-
-The following rules apply to every phase below.
-
-Permanent AI Studio rules
-You are modifying an existing production-oriented Maldives Tax &
-Accounting Calculation Engine.
-
-The repository already contains working functionality.
-
-DO NOT perform a rewrite.
-
-DO NOT replace the existing application architecture unless the
-specific phase explicitly authorizes it.
-
-DO NOT delete working functionality.
-
-DO NOT modify unrelated files.
-
-DO NOT change the UI unless explicitly required by the phase.
-
-DO NOT change existing API contracts unless explicitly required.
-
-DO NOT silently change tax rules.
-
-DO NOT invent MIRA requirements.
-
-DO NOT infer a tax rule from general knowledge when a regulatory
-source is required.
-
-Every statutory calculation must reference a versioned regulatory rule.
-
-Every financial amount must use decimal-safe arithmetic.
-Do not use JavaScript floating-point arithmetic for monetary
-calculations.
-
-Posted accounting transactions are immutable.
-
-Closed accounting/tax periods are immutable.
-
-Corrections must use reversal/adjustment transactions.
-
-AI/OCR output is NEVER authoritative tax/accounting data.
-
-AI may suggest classifications.
-
-Deterministic rules must validate classifications.
-
-Human approval is required wherever the configured risk policy
-requires it.
-
-Never claim that a return was filed with MIRA.
-
-MIRAconnect integration is NOT part of this project.
-
-The system may generate filing-ready documents/packages, but submission
-is performed outside this application.
-
-Before changing code:
-1. inspect relevant existing implementation;
-2. identify dependencies;
-3. identify existing tests;
-4. explain intended changes;
-5. then implement.
-
-After changing code:
-1. run relevant tests;
-2. run TypeScript/build checks;
-3. report modified files;
-4. report test results;
-5. report any remaining risks.
-
-Never hide failing tests.
-
-If a regulatory requirement is uncertain, implement
-REVIEW_REQUIRED rather than inventing a rule.
-
-
-PHASE 19 — Regulatory Truth Layer
+PHASE 52 — REVENUE / SALES + ACCOUNTING INTEGRATION
 Objective
-Create the authoritative regulatory rules system.
-Google AI Studio prompt
-PHASE 19 — REGULATORY TRUTH LAYER
 
-Do not modify the UI.
+Connect the existing Revenue/Sales functionality to the authoritative accounting, GST, reporting, reconciliation and audit layers.
 
-Do not rewrite existing tax services.
+Current problem
 
-Do not change existing calculations yet.
+The application can currently record revenue information through the Revenue Management UI, but revenue is not yet reliably functioning as part of the accounting system.
 
-First inspect:
-- src/services/miraTaxRates.ts
-- src/services/*
-- src/types/*
-- src/config/*
-- tests/*
-- existing Prisma schema
+Revenue must not remain an isolated CRUD record.
 
-Implement a versioned regulatory rule subsystem.
+The target flow is:
 
-Create:
+REVENUE / SALES ENTRY
+        │
+        ▼
+VALIDATION
+        │
+        ▼
+CLASSIFICATION
+        │
+        ├──────────────► GST TRANSACTION
+        │
+        ▼
+ACCOUNTING JOURNAL
+        │
+        ▼
+GENERAL LEDGER
+        │
+        ├──────────────► TRIAL BALANCE
+        │
+        ├──────────────► P&L
+        │
+        └──────────────► BALANCE SHEET
+        │
+        ▼
+GST RETURN / RECONCILIATION
+        │
+        ▼
+INCOME TAX ENGINE
+        │
+        ▼
+MIRA REPORTING
 
-src/regulatory/
-  rules/
-  versions/
-  resolvers/
-  types/
-  sources/
+Do not rewrite the existing application.
 
-The regulatory model must support:
+Do not replace working purchase-bill functionality.
 
-- ruleId
-- taxType
-- ruleCode
-- description
-- effectiveFrom
-- effectiveTo
-- taxYear
-- version
-- legalReference
-- sourceURL
-- parameters
-- status
+Do not redesign the entire UI.
 
-Create a deterministic RuleResolver.
+Implement the smallest set of changes necessary to make Revenue/Sales a genuine accounting transaction source.
 
-The resolver must select a rule based on:
-- transaction date
-- tax year
-- taxpayer type
-- sector
-- jurisdiction
-- applicable regulatory version
+1. Mandatory AI Studio operating rules
 
-Do not hard-code statutory rates into application services.
+Before modifying code:
 
-Seed only verified rules.
+Inspect the existing repository.
+Inspect the current Revenue Management implementation.
+Inspect all existing accounting services.
+Inspect GST services.
+Inspect P&L services.
+Inspect persistence/database implementation.
+Inspect existing tests.
+Identify existing API contracts.
+Identify duplicate or conflicting revenue/accounting logic.
+Explain the proposed implementation before changing files.
 
-Important verified current rules include:
-- General GST: 8%
-- Tourism GST: 17% from 2025-07-01
-- Individual income-tax brackets: 0%, 5.5%, 8%, 12%, 15%
-- Company threshold: MVR 500,000 at 0%, excess at 15%
-- NWT Section 55(a): generally 10%
-- NWT non-resident contractor: 5%
+After implementation:
 
-Do NOT remove old historical rates.
-Historical rates must remain available through effective dating.
+Run existing tests.
+Run new Phase 52 tests.
+Run TypeScript checks.
+Run the production build.
+Report every modified file.
+Report every new file.
+Report tests passed/failed.
+Report unresolved integration problems.
+Do not hide failing tests.
 
-Create unit tests proving that historical and current rates resolve
-according to transaction/tax-period date.
+These requirements follow the roadmap's permanent AI Studio rules.
 
-Do not connect this system to the existing services yet.
+2. First inspect these areas
 
-Acceptance criteria:
-1. RuleResolver is deterministic.
-2. Historical GST rates resolve correctly.
-3. 2025-07-01 tourism GST resolves to 17%.
-4. Individual 5.5% bracket resolves correctly.
-5. Company 500,000 threshold resolves correctly.
-6. NWT contractor resolves to 5%.
-7. NWT Section 55(a) categories resolve to 10%.
-8. No existing tests regress.
+AI Studio must inspect, at minimum:
 
-Return a file-by-file summary after implementation.
+src/components/RevenueManagementModal.tsx
 
-Do not touch
-src/components/*
-src/App.tsx
+src/services/accounting/
+src/services/gst/
+src/services/tax/
+src/services/reports/
+src/services/audit/
+src/services/db/
+src/types/
+src/config/
+
 server.ts
-existing tax calculation formulas
-database persistence
-authentication
 
+prisma/
+data/
 
-PHASE 20 — PostgreSQL + Prisma [COMPLETE]
-This is the biggest architectural migration.
-Objective
-Eliminate the dangerous three-way persistence model.
-Current:
-JSON
-+
-in-memory Maps
-+
-Prisma
+tests/
 
-Target:
-PostgreSQL
-    ↑
-Prisma
-    ↑
-services
-    ↑
-API
+Also search the entire repository for:
 
-Prompt
-PHASE 20 — DATABASE FOUNDATION
-
-Inspect the existing:
-- src/db/schema.prisma
-- src/services/persistenceService.ts
-- server.ts
-- /data/*
-- all service persistence calls
-- all tests
-
-Do not delete the JSON stores yet.
-
-Design and implement the production PostgreSQL schema.
-
-Extend the Prisma schema to support:
-
-Tenant
-User
-Role
-Permission
-UserTenant
-
-Taxpayer
-TaxRegistration
-TaxPeriod
-
-Supplier
-Customer
-
-Document
-DocumentVersion
-Invoice
-InvoiceLine
-
-Account
-AccountingPeriod
-Journal
-JournalLine
-
+revenue
+sales
+gross_amount
+gst_collected
+net_revenue
+payment_method
+journal
+journalLine
+ledger
 GSTTransaction
-GSTPeriod
+pnl
+accounting
+/api/revenue
 
-NWTTransaction
-NWTPeriod
+Do not assume the existing names represent the target architecture.
 
-FixedAsset
-FixedAssetMovement
+3. Define the Revenue/Sales domain model
 
-TaxAdjustment
-TaxLoss
-TaxLossUtilisation
+Create or adapt the existing model rather than creating duplicate concepts.
 
-TaxCalculation
-TaxCalculationLine
+A revenue transaction should conceptually contain:
 
-MIRAReturn
-MIRAReturnLine
+RevenueTransaction
 
-Reconciliation
-Approval
-AuditEvent
-PeriodLock
+id
+tenantId
+outletId
 
-RegulatoryRule
-RegulatoryVersion
+transactionDate
+accountingPeriodId
 
-All monetary fields must use Prisma Decimal.
+category
+description
 
-All business records must contain tenantId where tenant isolation
-is required.
+grossAmount
+netAmount
+gstAmount
 
-Add foreign keys, unique constraints and indexes.
+gstClassification
+gstRate
+gstRuleId
+gstRegulatoryVersion
 
-Do NOT migrate application logic yet.
+paymentMethod
+customerReference
 
-Do NOT remove JSON storage.
+currency
+fxRate
+mvrAmount
 
-Create migration files.
+status
 
-Create a database seed mechanism for regulatory rules.
+sourceType
+sourceId
 
-Acceptance tests:
-- Prisma schema validates.
-- migrations execute against a clean database.
-- migrations execute against an existing development database.
-- all foreign keys work.
-- Decimal fields are used for monetary amounts.
-- tenant isolation can be represented at schema level.
-- existing 108 tests remain passing.
+journalId
+gstTransactionId
 
-Do not modify UI.
+createdBy
+createdAt
+updatedAt
 
+Use the existing project's naming conventions if equivalent entities already exist.
 
-PHASE 21 — Accounting / General Ledger Core
-Prompt
-PHASE 21 — ACCOUNTING CORE
+Do not create duplicate tables merely because the existing name differs.
 
-Build the authoritative accounting ledger.
+The roadmap explicitly establishes a target accounting model based around Journal, JournalLine, LedgerPosting, TrialBalance, and GST transactions.
 
-Inspect:
-- transactionService.ts
-- journalService.ts
-- pnlService.ts
-- persistenceService.ts
-- existing accounting tests
+4. Revenue lifecycle
 
-Implement the following domain model:
+Implement the following lifecycle:
 
-Account
-AccountingPeriod
-Journal
-JournalLine
-LedgerPosting
-TrialBalance
+DRAFT
+   ↓
+VALIDATED
+   ↓
+REVIEW_REQUIRED
+   ↓
+APPROVED
+   ↓
+POSTED
+
+Possible terminal state:
+
+REVERSED
 
 Rules:
 
-1. Every posted journal must balance.
-2. Debit total must equal credit total.
-3. Posted journals cannot be edited.
-4. Posted journals cannot be deleted.
-5. Corrections require reversal journals.
-6. Every journal belongs to an accounting period.
-7. Locked periods reject new postings.
-8. Every posting must identify source document/event.
-9. All monetary calculations use Decimal.
-10. Journal posting must be atomic.
+DRAFT
 
-Create:
+Can be edited.
 
-src/services/accounting/
-  ledgerService.ts
-  journalPostingService.ts
-  trialBalanceService.ts
-  accountingPeriodService.ts
+VALIDATED
 
-Migrate the existing in-memory accounting behavior into this domain
-without changing the UI yet.
+Passed structural and accounting validation.
 
-Acceptance tests:
-- balanced journal posts.
-- unbalanced journal is rejected.
-- zero-line journal is rejected.
-- duplicate posting is rejected.
-- reversal balances.
-- locked period rejects posting.
-- trial balance balances.
-- database transaction rollback works.
-- existing accounting regression tests pass.
+REVIEW_REQUIRED
 
+Requires human intervention.
 
-PHASE 22 — Purchase Invoice / OCR Evidence
-Prompt
-PHASE 22 — PURCHASE INVOICE EVIDENCE MODEL
+Examples:
 
-Improve purchase-bill ingestion without changing the current UI.
-
-Every OCR-extracted field must become evidence-backed data.
-
-For every extracted field store:
-
-value
-confidence
-source
-boundingBox if available
-OCRModel
-OCRTimestamp
-manuallyCorrected
-correctedBy
-correctedAt
-
-Create:
-
-Document
-DocumentVersion
-Invoice
-InvoiceLine
-OCRFieldEvidence
-
-Invoice lifecycle:
-
-UPLOADED
-OCR_PROCESSING
-EXTRACTED
-VALIDATION_REQUIRED
-CLASSIFICATION_REQUIRED
-ACCOUNTANT_REVIEW
+invalid GST classification
+unusual GST treatment
+missing account mapping
+foreign currency without approved FX rate
+closed period
+invalid outlet
+manually overridden tax treatment
 APPROVED
+
+Authorized person has approved the transaction.
+
 POSTED
-REJECTED
 
-Never automatically mark a financial document APPROVED merely because
-OCR succeeded.
+Accounting journal and related tax records have been committed.
 
-Implement validation for:
-- invoice number
-- invoice date
-- supplier
-- supplier TIN where applicable
-- currency
-- subtotal
-- GST
-- total
-- arithmetic consistency
+Once POSTED:
 
-Acceptance tests:
-- OCR values are preserved.
-- corrections preserve original OCR value.
-- corrected values are auditable.
-- invalid totals cannot be posted.
-- low-confidence extraction reaches review.
-- existing purchase bill UI continues working.
+Do not edit or delete the financial transaction.
 
+The roadmap requires posted journals to be immutable and corrections to use reversal journals.
 
-PHASE 23 — Deterministic Classification Engine
-Prompt
-PHASE 23 — CLASSIFICATION ENGINE
+5. Accounting journal generation
 
-There are currently duplicated classification systems.
+This is the most important part of Phase 52.
 
-Inspect:
-- classificationEngine.ts
-- classificationService.ts
-- OCR parsing in server.ts
-- miraCategoryMapping.ts
-- pnlService.ts
+For a simple GST-inclusive sale:
 
-Create one canonical classification engine.
+Gross sales       MVR 108,000
+GST               MVR   8,000
+Net sales         MVR 100,000
 
-Each invoice line must independently contain:
+The accounting result should conceptually be:
 
-accountingClassification
+DR  Cash / Bank / Card Clearing       108,000
+
+CR  Sales Revenue                     100,000
+
+CR  GST Output Tax                      8,000
+
+The exact account IDs must come from the existing chart of accounts.
+
+Do not hard-code account IDs.
+
+Create a deterministic service such as:
+
+createRevenueJournal()
+
+or adapt the existing canonical journal service.
+
+It must produce:
+
+Journal
+ ├── JournalLine
+ ├── JournalLine
+ └── JournalLine
+
+with:
+
+totalDebit === totalCredit
+
+before posting.
+
+6. Cash / payment-method mapping
+
+Do not simply post every revenue transaction to a generic Cash account.
+
+Create deterministic payment-account mapping.
+
+Example:
+
+CASH
+    → Cash account
+
+BANK
+    → Bank account
+
+CARD
+    → Card clearing account
+
+ONLINE
+    → Online payment clearing account
+
+OTHER
+    → configured account
+
+The exact account mapping should come from configuration/chart-of-accounts data.
+
+If an account cannot be resolved:
+
+REVIEW_REQUIRED
+
+Do not invent an account.
+
+7. GST calculation
+
+The frontend must not be authoritative for GST.
+
+The current Revenue UI performs GST/net calculations in JavaScript. Replace that as the source of truth with backend/domain calculation.
+
+The flow should be:
+
+Revenue Input
+     ↓
+GST classification
+     ↓
+Regulatory rule resolver
+     ↓
+GST calculation
+     ↓
+Revenue journal
+     ↓
+GSTTransaction
+
+All financial calculations must use Decimal-safe arithmetic, consistent with the roadmap's accounting requirement.
+
+8. Gross versus net revenue
+
+The backend must explicitly know whether the entered amount is:
+
+GST_INCLUSIVE
+
+or
+
+GST_EXCLUSIVE
+
+Do not infer this ambiguously.
+
+For example:
+
+amountBasis = GST_INCLUSIVE
+
+Then the backend determines:
+
+gross
+gst
+net
+
+If:
+
+amountBasis = GST_EXCLUSIVE
+
+the backend determines:
+
+net
+gst
+gross
+
+The resulting values must be stored.
+
+Do not repeatedly recalculate historical transactions using whatever GST rate happens to be current today.
+
+9. GST classification
+
+Every revenue transaction must have a GST classification.
+
+At minimum support the classifications already established by the GST architecture:
+
+TAXABLE
+ZERO_RATED
+EXEMPT
+OUT_OF_SCOPE
+
+The roadmap specifically requires these GST classifications and versioned rate resolution.
+
+The transaction must preserve:
+
 gstClassification
-incomeTaxClassification
-nwtClassification
-assetClassification
-miraReportingClassification
+gstRate
+ruleId
+regulatoryVersion
 
-AI may provide suggestions.
+so historical transactions remain reproducible.
 
-AI output must never directly post a transaction.
+10. Sector-aware GST
 
-Implement:
+Revenue GST must use the taxpayer/outlet sector.
 
-suggestClassification()
-validateClassification()
-approveClassification()
+Do not simply use:
 
-Classification decisions must reference:
-- ruleId
-- regulatoryVersion
-- classificationReason
-- confidence
-- reviewer
+GST_RATE = 0.08
 
-High-risk classifications must require human approval.
+or:
 
-High-risk examples:
-- capital asset
-- blocked GST
-- non-deductible expense
-- NWT
-- related-party transaction
-- foreign transaction
+GST_RATE = 0.17
 
-Acceptance tests:
-- same input produces deterministic classification.
-- AI suggestion can be overridden.
-- override is audited.
-- high-risk classification cannot bypass review.
-- classification has regulatory traceability.
+The roadmap requires effective-dated regulatory resolution and currently distinguishes:
 
+General sector:
+8%
 
-PHASE 24 — GST Engine + MIRA 205/206
-This is an important correction to the audit report.
-Prompt
-PHASE 24 — GST ENGINE
-
-Correct the existing GST architecture.
-
-MIRA 105 is GST registration.
-MIRA 205 is the General Sector GST Return.
-MIRA 206 is the Tourism Sector GST Return.
-
-Do not call MIRA 105 the GST return.
-
-Implement a versioned GST engine.
-
-Support:
-- general sector
-- tourism sector
-- taxable
-- zero-rated
-- exempt
-- out-of-scope
-- input tax
-- blocked input tax
-- capital input tax
-- mixed-use input tax
-- apportionment
-- corrections
-- credit/debit adjustments
-- transaction date/effective rate
-
-Current verified rates:
-General: 8%
 Tourism:
 16% through 2025-06-30
 17% from 2025-07-01
 
-Use RegulatoryRule resolver rather than constants.
+with historical rules retained.
 
-Implement:
-GSTTransaction
-GSTPeriod
-GSTCalculation
-GSTReconciliation
+Therefore:
 
-Generate:
-MIRA 205 v25.1 for applicable General Sector periods.
-MIRA 206 for applicable Tourism Sector periods.
+resolveGstRule(
+    transactionDate,
+    taxpayer,
+    sector
+)
 
-Do not assume that MIRA 205 and MIRA 206 have identical structures.
+must determine the applicable rule.
 
-Retrieve field definitions from the official current MIRA forms/guides
-before finalizing mappings.
+If the rule cannot be determined:
 
-Acceptance tests:
-- 2025-06-30 tourism transaction uses 16%.
-- 2025-07-01 tourism transaction uses 17%.
-- general sector uses 8%.
-- exempt transaction creates no output GST.
-- blocked input cannot be claimed.
-- claimable input reconciles to source invoices.
-- MIRA 205 output is traceable to GST transactions.
-- MIRA 206 output is independently supported.
-- GST return totals reconcile to GL.
-
-MIRA currently confirms MIRA 205 is the General GST Return and MIRA 206 is for tourism. (Mira)
-
-PHASE 25 — NWT / MIRA 602
-Prompt
-PHASE 25 — NON-RESIDENT WITHHOLDING TAX
-
-Correct the existing WHT naming/model.
-
-The Maldives Income Tax Act distinguishes employee withholding tax
-under Section 54 from non-resident withholding tax under Section 55.
-
-This phase implements NWT.
-
-The return is MIRA 602.
-
-Current Section 55 rates:
-10%:
-- rent of Maldivian immovable property
-- royalty
-- qualifying interest
-- dividends
-- technical services
-- commissions for services supplied in Maldives
-- public entertainer performances
-- R&D
-- insurance premiums
-
-5%:
-- payments to non-resident contractors
-
-The engine must determine:
-- residency
-- payment type
-- Section 55 category
-- payment date
-- payable date
-- earlier-of payment/payable withholding date
-- gross amount
-- rate
-- DTAA/treaty relief where legally applicable
-- withholding amount
-- currency
-- reporting period
-
-Do not automatically assume every foreign supplier is subject to NWT.
-
-Implement:
-NWTTransaction
-NWTPeriod
-NWTCalculation
-NWTReconciliation
-WithholdingCertificateRecord
-
-MIRA 602 must reflect the current form version applicable to the period.
-Do not hard-code v23.1 or v24.1 universally.
-
-Acceptance tests:
-- 10% FTS.
-- 10% royalty.
-- 5% contractor.
-- non-NWT foreign purchase.
-- withholding date uses earlier payment/payable date.
-- treaty relief requires documented evidence.
-- MIRA 602 is generated from NWT transactions.
-- monthly NWT reconciliation works.
-- due date is the 15th of following month.
-
-MIRA confirms MIRA 602 and the current 10%/5% structure. (Mira)
-
-PHASE 26 — Income Tax Engine
-Prompt
-PHASE 26 — INCOME TAX ENGINE
-
-Rebuild entity income-tax calculations around versioned regulatory rules.
-
-Support:
-
-Company
-Individual
-Partnership
-Other applicable taxpayer types
-
-Company:
-0% on first MVR 500,000
-15% above MVR 500,000
-
-Individual:
-0% up to 720,000
-5.5% from 720,000 to 1,200,000
-8% from 1,200,000 to 1,800,000
-12% from 1,800,000 to 2,400,000
-15% above 2,400,000
-
-Do not hard-code these values.
-
-Implement:
-TaxableIncomeCalculation
-TaxBracketCalculation
-TaxLiability
-TaxCredit
-Prepayment
-WithholdingCredit
-FinalTaxPayable
-
-Tax calculations must be explainable.
-
-Each calculation must retain:
-inputs
-rule IDs
-formula
-intermediate values
-result
-
-Use Decimal arithmetic.
-
-Acceptance tests must cover:
-- every bracket boundary
-- MVR 500,000 company boundary
-- MVR 500,001 company case
-- zero income
-- negative accounting profit
-- tax loss
-- short accounting period where legally applicable
-- credits/prepayments
-
-Current MIRA individual and company rates are confirmed by MIRA. (Mira)
-
-PHASE 27 — MIRA 604 v25.1 [COMPLETE]
-Prompt
-PHASE 27 — MIRA 604 VERSIONED FORM ENGINE
-
-Implement MIRA 604 as a versioned form definition.
-
-Current verified target:
-MIRA 604 v25.1
-Applicable from tax year 2024 onward.
-
-Do not represent the form as one giant hard-coded function.
-
-Create:
-
-src/regulatory/forms/
-  mira604/
-    v25_1/
-      definition.ts
-      fields.ts
-      formulas.ts
-      validations.ts
-      mappings.ts
-
-Every field must define:
-fieldCode
-label
-dataType
-required
-source
-formula if applicable
-validation
-applicability
-ruleVersion
-
-Every generated value must have a source trace.
-
-Build:
-MIRA604Calculation
-MIRA604Validation
-MIRA604Generator
-
-Do not assume the old Section A-F description is sufficient.
-Use the official v25.1 form and guide as the source of truth.
-
-Acceptance tests:
-- all required v25.1 fields are represented.
-- invalid required fields are rejected.
-- generated values reconcile with tax engine.
-- form values trace to accounting/tax records.
-- current v25.1 structure is regression-tested.
-
-MIRA identifies v25.1 as the current MIRA 604 version for tax years from 2024 onward. (Mira)
-
-PHASE 28 — MIRA Schedules
-Prompt
-PHASE 28 — MIRA 604 SCHEDULE ENGINE
-
-Do not assume that every schedule is a capital-allowance schedule.
-
-The official MIRA forms catalogue currently identifies:
-
-Schedule 2:
-Statement of Financial Position
-
-Schedule 3:
-Statement of Net Worth Excluding Business
-
-Schedule 4:
-Reporting of International Transactions with Associates
-
-Schedule 5:
-Reporting of share of taxable income from Controlled Foreign Entities
-
-Current Schedule 4 and Schedule 5 versions are v25.1.
-
-Implement versioned schedule definitions.
-
-Create:
-Schedule2
-Schedule3
-Schedule4
-Schedule5
-
-Each schedule must have:
-field definitions
-source mappings
-applicability rules
-validation rules
-version
-
-Schedule 4 must support related-party/international transaction data.
-
-Schedule 5 must support CFE reporting where applicable.
-
-Do not generate Schedule 4 or 5 merely because the return exists.
-Determine applicability.
-
-Acceptance tests:
-- Schedule 2 reconciles to balance sheet.
-- Schedule 3 handles applicable non-business net worth.
-- Schedule 4 is triggered by applicable related-party transactions.
-- Schedule 5 is triggered by applicable CFE ownership/income conditions.
-- all schedule totals reconcile.
-
-MIRA's current forms catalogue supports these schedule descriptions and versions. (Mira)
-
-PHASE 29 — Capital Allowance
-Prompt
-PHASE 29 — CAPITAL ALLOWANCE ENGINE
-
-Separate accounting depreciation from tax capital allowance.
-
-Implement:
-
-FixedAsset
-FixedAssetMovement
-TaxAssetPool
-CapitalAllowanceCalculation
-DisposalCalculation
-
-Each tax asset must retain:
-cost
-tax basis
-acquisition date
-in-service date
-tax classification
-applicable rule
-allowance claimed
-closing tax value
-disposal proceeds
-disposal date
-
-Do not hard-code rates.
-
-Resolve rates through RegulatoryRule.
-
-Do not assume that the existing "Schedule 2 capital allowance"
-description is correct. Validate the actual current MIRA 604/form
-presentation before implementing report mappings.
-
-Support:
-- acquisition
-- partial-year treatment where legally applicable
-- disposal
-- balancing adjustments where legally applicable
-- low-value treatment where legally applicable
-- historical rates
-
-Acceptance tests:
-- asset acquisition.
-- asset disposal.
-- partial-year asset.
-- fully depreciated/allowed asset.
-- historical rate.
-- tax basis never becomes negative.
-- accounting depreciation never changes tax basis directly.
-
-
-PHASE 30 — Tax Adjustment Engine
-Prompt
-PHASE 30 — TAX ADJUSTMENT LEDGER
-
-Create a formal tax adjustment ledger.
-
-Every adjustment must have:
-
-id
-taxYear
-sourceJournalLine
-adjustmentCode
-description
-amount
-direction
-ruleId
-supportingDocument
-reviewStatus
-approvedBy
-approvedAt
-
-Support:
-- depreciation addback
-- non-deductible expenditure
-- private expenditure
-- fines/penalties
-- capital expenditure adjustments
-- allowable tax deductions
-- other legally applicable adjustments
-
-Do not assume an adjustment is deductible/non-deductible merely from
-an account name.
-
-Use deterministic rules.
-
-Every adjustment must be traceable to:
-invoice/document
-journal
-account
-tax rule
-
-Acceptance tests:
-- adjustment creates tax bridge.
-- source journal is traceable.
-- reversing accounting transaction reverses/updates adjustment.
-- unauthorized user cannot approve.
-- duplicate adjustment cannot occur.
-
-
-PHASE 31 — Tax Loss Engine
-Prompt
-PHASE 31 — TAX LOSS LOT ENGINE
-
-Do not store prior-year loss as one aggregate number.
-
-Create TaxLossLot:
-
-originTaxYear
-originalAmount
-utilisedAmount
-remainingAmount
-expiryTaxYear
-status
-
-Create TaxLossUtilisation:
-
-lossLotId
-taxYear
-amount
-calculationId
-approvedBy
-
-Implement FIFO or the legally correct utilisation ordering after
-verifying the applicable Income Tax Act/Regulation requirement.
-
-Do not assume five-year treatment solely from the old application code.
-Validate the current law and encode the verified rule.
-
-Acceptance tests:
-- loss generated.
-- loss carried forward.
-- partial utilisation.
-- multiple loss years.
-- expiry.
-- no over-utilisation.
-- complete audit trail.
-
-
-PHASE 32 — Foreign Exchange
-Prompt
-PHASE 32 — FOREIGN EXCHANGE ENGINE
-
-Implement authoritative FX accounting.
-
-Every foreign-currency transaction must store:
-
-transactionCurrency
-functionalCurrency
-sourceAmount
-fxRate
-rateDate
-rateSource
-MVRAmount
-
-Never recalculate historical transactions using current FX rates.
-
-Support:
-- invoice recognition
-- settlement
-- realised FX gain/loss
-- period-end revaluation
-- unrealised FX
-- reversal of previous revaluation
-
-Implement FXRate table:
-
-currency
-date
-rate
-source
-retrievedAt
-approved
-
-MVR transactions must not require unnecessary FX conversion.
-
-Acceptance tests:
-- USD invoice.
-- historical rate.
-- settlement at different rate.
-- realised gain.
-- realised loss.
-- period-end unrealised FX.
-- reversal.
-- missing rate results in REVIEW_REQUIRED rather than invented rate.
-
-
-PHASE 33 — Reconciliation Engine
-Prompt
-PHASE 33 — RECONCILIATION ENGINE
-
-Build a formal reconciliation framework.
-
-Every reconciliation must return:
-
-PASS
-WARNING
-FAIL
-
-Create:
-
-Reconciliation
-ReconciliationItem
-ReconciliationRule
-
-Implement:
-
-GL ↔ GST
-GL ↔ NWT
-AP ↔ NWT
-Fixed Assets ↔ GL
-Tax Assets ↔ Fixed Assets
-P&L ↔ Income Tax
-Tax Adjustments ↔ Tax Calculation
-MIRA 604 ↔ Tax Engine
-Schedule 2 ↔ Balance Sheet
-Schedule 3 ↔ applicable source data
-Schedule 4 ↔ related-party ledger
-Schedule 5 ↔ CFE data
-
-Every difference must identify the underlying transactions.
-
-Acceptance tests:
-- perfect reconciliation returns PASS.
-- one transaction difference returns FAIL.
-- rounding-only difference follows configured tolerance.
-- user can drill from reconciliation difference to source transaction.
-
-
-PHASE 34 — Offline MIRA Filing Package
-Prompt
-PHASE 34 — MIRA FILING PACKAGE
-
-Do NOT implement MIRAconnect transmission.
-
-Remove MIRAconnect from the required production workflow.
-
-Create an offline filing-package generator.
-
-Output:
-
-/filing-package/
-  manifest.json
-  MIRA604.pdf
-  MIRA205.pdf where applicable
-  MIRA206.pdf where applicable
-  MIRA602.pdf where applicable
-  schedules/
-  tax-calculation/
-  reconciliation/
-  supporting-documents/
-  hashes.json
-
-The manifest must contain:
-
-tenant
-TIN
-taxpayer
-taxYear
-accountingPeriod
-formVersions
-regulatoryVersions
-generatedAt
-documentHashes
-
-The package must state:
-
-"Generated for taxpayer review and filing."
-
-It must NOT state:
-
-"Filed with MIRA."
-
-Acceptance tests:
-- package generates.
-- hashes verify.
-- package can be regenerated deterministically for the same data/version.
-- missing mandatory form data blocks package generation.
-- MIRAconnect is not called.
-
-
-PHASE 35 — Immutable Audit Ledger
-Prompt
-PHASE 35 — AUDIT SYSTEM
-
-Implement immutable audit events.
-
-AuditEvent:
-
-id
-tenantId
-actorId
-timestamp
-eventType
-entityType
-entityId
-beforeHash
-afterHash
-metadata
-reason
-correlationId
-
-Audit:
-- document upload
-- OCR
-- OCR correction
-- classification
-- classification override
-- approval
-- journal posting
-- journal reversal
-- tax adjustment
-- tax calculation
-- period lock
-- return generation
-- filing package generation
-
-Do not allow ordinary users to edit/delete audit events.
-
-Create tamper-evident chaining if compatible with existing architecture.
-
-Acceptance tests:
-- every financial mutation produces audit event.
-- override is audited.
-- audit event cannot be edited.
-- unauthorized audit access is rejected.
-- audit chain integrity can be verified.
-
-
-PHASE 36 — Period Closing
-Prompt
-PHASE 36 — PERIOD CONTROL
-
-Implement accounting/tax period states:
-
-OPEN
-REVIEW
-APPROVED
-LOCKED
-AMENDED
-
-Rules:
-
-OPEN:
-normal posting
-
-REVIEW:
-controlled changes
-
-APPROVED:
-only authorized amendments
-
-LOCKED:
-no normal modifications
-
-AMENDED:
-requires explicit amendment workflow
-
-No database deletion may bypass the period lock.
-
-Corrections to locked periods must use controlled amendment/reversal
-workflow.
-
-Acceptance tests:
-- open period accepts posting.
-- locked period rejects posting.
-- locked transaction cannot be edited.
-- reversal requires permission.
-- amendment is audited.
-
-
-PHASE 37 — Approval Workflow
-Prompt
-PHASE 37 — ACCOUNTING AND TAX APPROVAL WORKFLOW
-
-Implement:
-
-DATA_ENTRY
-ACCOUNTANT
-TAX_REVIEWER
-FINANCE_MANAGER
-ADMIN
-AUDITOR
-
-Create approval states:
-
-DRAFT
-SUBMITTED
 REVIEW_REQUIRED
-APPROVED
-REJECTED
-POSTED
+11. GST transaction creation
 
-Risk-based approval must apply to:
-- capital assets
-- blocked GST
-- NWT
-- tax adjustments
-- related-party transactions
-- foreign currency exceptions
-- manual OCR corrections affecting tax
-- tax return approval
+Every POSTED taxable revenue transaction must create a corresponding:
 
-The AI model cannot approve.
-
-Acceptance tests:
-- unauthorized approval rejected.
-- accountant can approve configured classifications.
-- tax reviewer required for tax adjustments.
-- approval creates audit event.
-- rejected records cannot post.
-
-
-PHASE 38 — Security Hardening
-Prompt
-PHASE 38 — SECURITY HARDENING
-
-Inspect all Express routes in server.ts.
-
-Current risks include:
-- timestamp-based session tokens
-- plaintext/sensitive JSON storage
-- weak tenant enforcement
-- legacy routes without consistent authorization
-
-Implement:
-
-cryptographically secure session IDs
-session expiration
-secure cookies
-HttpOnly
-SameSite
-CSRF protection where applicable
-rate limiting
-request validation
-RBAC middleware
-tenant isolation
-security headers
-secure file-upload validation
-secret environment variables
-
-Do not expose:
-passwords
-session tokens
-API keys
-service credentials
-
-Do not delete existing routes.
-
-Wrap legacy routes with authorization middleware.
-
-Acceptance tests:
-- unauthenticated request rejected.
-- expired session rejected.
-- tenant A cannot access tenant B.
-- unauthorized role rejected.
-- malicious upload rejected.
-- secrets are not committed.
-
-
-PHASE 39 — AI Governance
-This is one of the most important phases.
-Prompt
-PHASE 39 — AI GOVERNANCE
-
-AI/OCR is an assistant, never the tax authority.
-
-Separate:
-
-AIExtraction
-AISuggestion
-DeterministicValidation
-HumanApproval
-AccountingPosting
-
-Gemini may:
-- extract invoice data
-- suggest classification
-- identify possible anomalies
-
-Gemini may NOT:
-- directly post journals
-- directly calculate final tax liability
-- change statutory tax rates
-- approve tax treatment
-- bypass mandatory review
-
-Every AI result must store:
-model
-modelVersion
-promptVersion
-timestamp
-confidence
-rawOutputHash
-normalizedOutput
-
-Implement review thresholds.
-
-High-risk financial/tax classifications must require human approval.
-
-Acceptance tests:
-- AI cannot post.
-- AI cannot alter regulatory rules.
-- AI cannot approve.
-- low confidence requires review.
-- overridden AI result is audited.
-
-
-PHASE 40 — Comprehensive E2E Test Engine
-Prompt
-PHASE 40 — MASTER END-TO-END TEST
-
-Replace the existing concept of "test passes = production ready"
-with a much stronger deterministic E2E suite.
-
-Create:
-
-tests/e2e/miraTaxEngine.test.ts
-
-Test:
-
-Tenant
-→ taxpayer
-→ supplier
-→ document
-→ OCR
-→ validation
-→ classification
-→ approval
-→ journal
-→ GL
-→ GST
-→ NWT
-→ fixed asset
-→ tax adjustment
-→ income tax
-→ MIRA form
-→ reconciliation
-→ filing package
-
-Assert every major intermediate value.
-
-Do not merely assert that the pipeline completed.
-
-Assert:
-- journal balance
-- GST
-- NWT
-- tax adjustment
-- taxable income
-- tax liability
-- return values
-- reconciliation
-- document hashes
-
-The E2E test must fail if any intermediate calculation is wrong.
-
-
-PHASE 41 — Golden Tax Cases
-Prompt
-PHASE 41 — GOLDEN REGULATORY CASES
-
-Create immutable golden test fixtures.
-
-Cases:
-
-GOLDEN-001 simple purchase
-GOLDEN-002 general GST
-GOLDEN-003 tourism GST before 2025-07-01
-GOLDEN-004 tourism GST from 2025-07-01
-GOLDEN-005 exempt purchase
-GOLDEN-006 blocked input tax
-GOLDEN-007 capital asset
-GOLDEN-008 foreign currency purchase
-GOLDEN-009 NWT technical service
-GOLDEN-010 NWT contractor
-GOLDEN-011 NWT treaty relief
-GOLDEN-012 company income tax
-GOLDEN-013 individual income tax
-GOLDEN-014 prior tax loss
-GOLDEN-015 related-party transaction
-GOLDEN-016 CFE scenario
-GOLDEN-017 period lock
-GOLDEN-018 accounting reversal
-GOLDEN-019 OCR correction
-GOLDEN-020 full MIRA filing package
-
-Each fixture must contain:
-inputs
-expected calculations
-expected classifications
-expected return values
-expected reconciliation state
-
-Do not silently update golden expected values.
-Changing a golden value requires explicit review.
-
-
-PHASE 42 — Regulatory Regression Framework
-Prompt
-PHASE 42 — REGULATORY REGRESSION
-
-Create a regulatory regression framework.
-
-Every regulatory rule must have:
-effectiveFrom
-effectiveTo
-version
-source
-test cases
-
-When a new rule is introduced:
-- old historical rules remain available
-- historical tests continue passing
-- new tests are added
-- existing tax years must not change unexpectedly
-
-Create:
-RegulatorySnapshot
-RegulatoryRuleVersion
-RegulatoryRegressionTest
-
-Acceptance test:
-
-Change a future tax rule.
-
-Verify that:
-2024 calculations remain unchanged.
-2025 calculations remain unchanged where applicable.
-Future periods use the new rule.
-
-No rule may be changed merely by editing UI configuration.
-
-
-PHASE 43 — Explainable Tax Calculation
-Prompt
-PHASE 43 — TAX EXPLAINABILITY
-
-Every tax calculation must produce a calculation explanation.
-
-Create:
-
-TaxCalculationExplanation
-
-Structure:
-
-INPUTS
-RULES
-STEPS
-INTERMEDIATE_RESULTS
-FINAL_RESULT
-
-Example:
-
-Taxable income:
-MVR X
-
-Bracket 1:
-amount × rate = tax
-
-Bracket 2:
-amount × rate = tax
-
-Total:
-MVR X
-
-Every step must reference its regulatory rule.
-
-Expose the explanation through an API.
-
-Do not use AI to generate the mathematical explanation.
-
-The explanation must come directly from deterministic calculation data.
-
-Acceptance tests:
-- calculation explanation reproduces exact tax result.
-- every tax step has rule reference.
-- no unexplained adjustment exists.
-
-
-PHASE 44 — Compliance Dashboard
-Prompt
-PHASE 44 — TAX COMPLIANCE DASHBOARD
-
-Add a compliance dashboard without changing the existing application
-navigation unnecessarily.
-
-Display:
-
-Accounting status
-GST status
-NWT status
-Income Tax status
-MIRA return status
-Reconciliation status
-Approval status
-Period status
-
-Each item should show:
-PASS
-WARNING
-BLOCKED
-NOT_APPLICABLE
-
-Show blocking issues.
-
-Examples:
-Missing TIN
-Unapproved classification
-GST reconciliation difference
-Unposted journal
-Locked-period amendment
-Missing supporting document
-Required schedule incomplete
-
-Every warning must link to the underlying record.
-
-Do not calculate tax in React.
-The backend remains authoritative.
-
-
-PHASE 45 — Filing Readiness Engine
-Prompt
-PHASE 45 — PRE-FILING CONTROL ENGINE
-
-Create:
-
-PreFilingCheck
-PreFilingResult
-PreFilingIssue
-
-Implement:
-
-RUN PRE-FILING CHECK
-
-Checks:
-
-accounting balances
-no unposted required transactions
-period approved
-period status valid
-GST reconciled
-NWT reconciled
-fixed assets reconciled
-tax adjustments reviewed
-tax losses reconciled
-MIRA return validated
-required schedules validated
-supporting documents present
-mandatory approvals complete
-no blocking audit exceptions
-
-Return:
-
-READY_FOR_FILING
-
-or
-
-NOT_READY
-
-with blocking issues.
-
-The filing package generator must refuse to generate a
-"ready for filing" package if blocking issues exist.
-
-
-PHASE 46 — Production Infrastructure
-Prompt
-PHASE 46 — PRODUCTION INFRASTRUCTURE
-
-Prepare the application for deployment.
-
-Implement/document:
-
-development environment
-staging environment
-production environment
-
-PostgreSQL
-environment variables
-database migrations
-health endpoint
-readiness endpoint
-structured logging
-error handling
-request correlation IDs
-Docker configuration
-backup configuration
-migration deployment process
-
-Do not put production credentials in repository.
-
-Do not modify tax logic.
-
-Acceptance tests:
-- clean production-like build.
-- clean database migration.
-- health endpoint works.
-- readiness endpoint detects database failure.
-- application starts without development-only assumptions.
-
-
-PHASE 47 — Disaster Recovery
-Prompt
-PHASE 47 — DISASTER RECOVERY
-
-Design and document:
-
-database backup
-point-in-time recovery
-document backup
-audit backup
-off-site backup
-restore procedure
-
-Create a recovery runbook.
-
-Test:
-
-1. create accounting data
-2. create tax calculation
-3. create audit events
-4. create filing package
-5. backup
-6. restore
-7. verify all records
-8. verify audit chain
-9. verify tax results
-
-Acceptance criteria:
-Restored system produces identical accounting and tax results.
-
-
-PHASE 48 — Performance Testing
-Prompt
-PHASE 48 — PERFORMANCE TESTING
-
-Do not optimize business rules.
-
-Benchmark:
-
-10,000 invoices
-100,000 invoice lines
-1,000,000 journal lines
-multiple tenants
-multiple years
-
-Measure:
-
-invoice ingestion
-classification
-journal posting
-trial balance
-GST calculation
-NWT calculation
-income tax calculation
-reconciliation
-MIRA form generation
-filing package generation
-
-Identify:
-slow SQL queries
-N+1 queries
-memory leaks
-unbounded queries
-missing indexes
-
-Only optimize after proving the bottleneck.
-
-Do not change calculation results.
-
-
-PHASE 49 — Security Audit
-Prompt
-PHASE 49 — SECURITY AUDIT
-
-Perform a security review of the complete repository.
-
-Check:
-
-authentication
-authorization
-tenant isolation
-session management
-CSRF
-XSS
-SQL injection
-file upload
-path traversal
-IDOR
-API abuse
-rate limiting
-secret exposure
-dependency vulnerabilities
-logging of sensitive information
-
-Create:
-
-SECURITY_AUDIT.md
-
-For every finding:
-
-severity
-location
-risk
-recommended fix
-status
-
-Fix critical and high vulnerabilities.
-
-Do not modify tax formulas.
-
-Run all existing tests afterward.
-
-
-PHASE 50 — Accountant Acceptance Testing
-This phase should involve a real accountant/tax practitioner.
-Prompt
-PHASE 50 — ACCOUNTANT ACCEPTANCE TESTING
-
-Create a structured acceptance-test framework for Maldives
-accounting/tax practitioners.
-
-Create:
-
-tests/acceptance/
-
-Provide anonymized scenarios covering:
-
-purchase invoices
-GST
-tourism GST
-NWT
-foreign currency
-capital assets
-tax adjustments
-tax losses
-company income tax
-individual income tax
-related parties
-CFE
-period amendments
-MIRA 604
-MIRA 205
-MIRA 206
-MIRA 602
-
-For each case capture:
-
-input
-expected accounting
-expected tax treatment
-expected MIRA result
-reviewer
-review date
-result
-comments
-
-Do not automatically mark acceptance tests passed.
-
-Create an acceptance report.
-
-
-PHASE 51 — Production Certification
-This is the final gate.
-Prompt
-PHASE 51 — PRODUCTION CERTIFICATION
-
-Do NOT change application functionality unless a certification test
-reveals a failure.
-
-Run a complete production-readiness audit.
-
-Verify:
-
-REGULATORY
-- current MIRA rules documented
-- effective dates implemented
-- sources documented
-- historical rules preserved
-
-ACCOUNTING
-- double-entry integrity
-- immutable posted journals
-- trial balance
-- period controls
-
-GST
-- MIRA 205
-- MIRA 206
-- current rates
-- historical rates
-- GST reconciliation
-
-NWT
-- MIRA 602
-- Section 55 categories
-- 10% categories
-- 5% contractor
-- payment/payable date
-- reconciliation
-
-INCOME TAX
-- company rates
-- individual brackets
-- tax losses
-- tax adjustments
-- capital allowances
-
-MIRA
-- MIRA 604 v25.1
-- applicable schedules
-- correct form versions
-- source traceability
-
-AUDIT
-- immutable events
-- approvals
-- reversals
-- period locking
-
-SECURITY
-- authentication
-- authorization
-- tenant isolation
-- secrets
-- file security
-
-AI
-- no AI direct tax authority
-- review gates
-- model/version audit
-
-OPERATIONS
-- backups
-- restore
-- migrations
-- monitoring
-- logging
-
-TESTING
-- unit
-- integration
-- regression
-- golden cases
-- E2E
-- acceptance tests
-
-Generate:
-
-PRODUCTION_READINESS_REPORT.md
-
-Classify every item:
-
-PASS
-FAIL
-WARNING
-NOT_APPLICABLE
-
-The application must not be declared production-ready if any
-critical regulatory, accounting, security, audit, or data-integrity
-item is FAIL.
-
-
-The database architecture I want AI Studio to converge toward
-Don't let each phase invent its own tables. This is the target model.
-TENANCY
-────────
-Tenant
-User
-Role
-Permission
-UserTenant
-
-TAXPAYER
-────────
-Taxpayer
-TaxRegistration
-TaxPeriod
-
-DOCUMENTS
-─────────
-Document
-DocumentVersion
-OCRFieldEvidence
-
-PURCHASES
-─────────
-Supplier
-Invoice
-InvoiceLine
-
-ACCOUNTING
-─────────
-Account
-AccountingPeriod
-Journal
-JournalLine
-LedgerPosting
-TrialBalance
-
-GST
-───
 GSTTransaction
-GSTPeriod
-GSTCalculation
 
-NWT
-───
-NWTTransaction
-NWTPeriod
-NWTCalculation
-WithholdingCertificate
+containing enough information to trace:
 
-FIXED ASSETS
-────────────
-FixedAsset
-FixedAssetMovement
-TaxAssetPool
-CapitalAllowanceCalculation
+GSTTransaction
+    ↓
+RevenueTransaction
+    ↓
+Journal
+    ↓
+JournalLine
 
-INCOME TAX
-──────────
+The reverse direction must also be possible:
+
+MIRA GST box
+    ↓
+GSTTransaction
+    ↓
+RevenueTransaction
+    ↓
+source document
+
+This is necessary for reconciliation and filing traceability.
+
+The roadmap requires GST return totals to reconcile back to source transactions and the GL.
+
+12. Revenue → P&L integration
+
+Revenue must appear in the existing P&L through the ledger.
+
+Do not create a second P&L calculation based directly on revenue.json.
+
+The authoritative path is:
+
+Revenue
+   ↓
+Journal
+   ↓
+Ledger
+   ↓
+P&L
+
+Therefore:
+
+P&L Revenue
+
+must equal the appropriate revenue accounts in the GL.
+
+This prevents:
+
+Revenue screen = MVR X
+
+P&L = MVR Y
+
+GST return = MVR Z
+
+from becoming three independent numbers.
+
+There should be one accounting source of truth.
+
+13. Revenue → Income Tax
+
+Do not calculate income tax directly inside Revenue Management.
+
+Instead:
+
+Revenue
+   ↓
+GL
+   ↓
+P&L
+   ↓
+Income Tax Engine
+
+The income-tax engine should consume the authoritative accounting result.
+
+This is particularly important because the roadmap defines income tax around:
+
 TaxAdjustment
 TaxLossLot
 TaxLossUtilisation
@@ -1904,224 +504,1129 @@ TaxCalculationLine
 TaxCredit
 TaxPrepayment
 
-MIRA
-────
-MIRAReturn
-MIRAReturnLine
-MIRASchedule
-MIRAFormVersion
+rather than a direct revenue calculation.
 
-COMPLIANCE
-──────────
-Reconciliation
-ReconciliationItem
-PreFilingCheck
-PreFilingIssue
+Phase 52 should therefore enable income-tax integration rather than duplicate the income-tax engine.
 
-GOVERNANCE
-──────────
-Approval
-AuditEvent
-PeriodLock
+14. Reconciliation requirements
 
-REGULATORY
-──────────
-RegulatoryVersion
-RegulatoryRule
-RegulatorySource
+Add revenue-related reconciliation checks.
+
+At minimum:
+
+Revenue Subledger ↔ GL Revenue
+GST Transactions ↔ GL GST Output
+Revenue ↔ GST Return
+Revenue ↔ P&L
+
+Each reconciliation must return:
+
+PASS
+WARNING
+FAIL
+
+The roadmap's reconciliation framework requires differences to identify the underlying transactions.
+
+Example:
+
+Revenue GL reconciliation
+
+Expected: 1,080,000
+Actual:   1,080,000
+Difference: 0
+
+PASS
+
+If one transaction is missing:
+
+Expected: 1,080,000
+Actual:   972,000
+Difference: 108,000
+
+FAIL
+
+Affected transaction:
+REV-000123
+15. Editing revenue
+
+This directly addresses the user's current inability to update revenue.
+
+Before posting
+
+Allow:
+
+PUT /api/revenue/:id
+
+or the existing equivalent.
+
+The update must validate:
+
+period status
+transaction status
+permissions
+GST calculation
+accounting classification
+After posting
+
+Do not update the journal in place.
+
+Instead:
+
+Original:
+REV-000123
+POSTED
+108,000
+
+Correction:
+REV-000123-REV
+REVERSAL
+-108,000
+
+Replacement:
+REV-000123-CORR
+POSTED
+120,000
+
+The original remains untouched.
+
+This conforms to the roadmap's immutable-journal and reversal model.
+
+16. Delete revenue
+
+Implement these rules:
+
+DRAFT
+→ may delete
+
+VALIDATED
+→ may delete according to permission
+
+APPROVED
+→ no ordinary delete
+
+POSTED
+→ NEVER DELETE
+
+REVERSED
+→ NEVER DELETE
+
+A posted transaction is corrected through reversal.
+
+17. Period controls
+
+Before posting revenue:
+
+resolveAccountingPeriod(transactionDate)
+
+Then verify:
+
+period.status
+
+If:
+
+OPEN
+
+posting may proceed.
+
+If:
+
+REVIEW
+APPROVED
+LOCKED
+AMENDED
+
+follow the existing period-control workflow.
+
+In particular:
+
+LOCKED
+→ reject normal posting
+
+The roadmap explicitly requires locked periods to reject new postings and amendments to use a controlled workflow.
+
+18. Idempotency / duplicate protection
+
+This is essential.
+
+If the user presses Save twice, or the browser retries an API request, the application must not create:
+
+2 revenue records
+2 journals
+2 GST transactions
+
+for one logical transaction.
+
+Implement an idempotency mechanism using an appropriate combination of:
+
+sourceId
+requestId / idempotencyKey
+tenantId
+
+and database uniqueness constraints where appropriate.
+
+Acceptance test:
+
+POST same transaction twice
+
+Expected:
+1 RevenueTransaction
+1 Journal
+1 GSTTransaction
+19. Atomic posting
+
+Revenue posting must be transactional.
+
+Conceptually:
+
+BEGIN TRANSACTION
+
+create/update RevenueTransaction
+
+create Journal
+
+create JournalLines
+
+post Ledger
+
+create GSTTransaction
+
+create audit event
+
+COMMIT
+
+If anything fails:
+
+ROLLBACK EVERYTHING
+
+Never allow:
+
+Revenue exists
+but Journal does not
+
+or
+
+Journal exists
+but GSTTransaction does not
+
+The roadmap explicitly requires journal posting to be atomic and database rollback to be tested.
+
+20. Audit trail
+
+Posting revenue must create an immutable audit event.
+
+At minimum:
+
+eventType:
+REVENUE_CREATED
+REVENUE_UPDATED
+REVENUE_APPROVED
+REVENUE_POSTED
+REVENUE_REVERSED
+
+Include:
+
+tenantId
+actorId
+timestamp
+entityType
+entityId
+beforeHash
+afterHash
+metadata
+reason
+correlationId
+
+The roadmap specifies these audit fields and requires financial mutations to generate audit events.
+
+21. API contract
+
+First inspect the existing API.
+
+The existing Revenue UI already expects operations conceptually equivalent to:
+
+GET    /api/revenue
+POST   /api/revenue
+PUT    /api/revenue/:id
+DELETE /api/revenue/:id
+
+Do not change these contracts unnecessarily.
+
+Instead, make their backend behavior correct.
+
+GET
+
+Return revenue records with status and integration state.
+
+Example:
+
+{
+  "id": "REV-001",
+  "date": "2026-08-31",
+  "category": "SALES",
+  "grossAmount": "108000.00",
+  "netAmount": "100000.00",
+  "gstAmount": "8000.00",
+  "status": "POSTED",
+  "journalId": "JRN-001",
+  "gstTransactionId": "GST-001"
+}
+
+Use the project's existing response conventions rather than blindly adopting this exact JSON shape.
+
+22. API error behavior
+
+Do not return generic:
+
+500 Internal Server Error
+
+for every business failure.
+
+Return useful machine-readable errors.
+
+Examples:
+
+PERIOD_LOCKED
+
+UNBALANCED_JOURNAL
+
+INVALID_GST_CLASSIFICATION
+
+GST_RULE_NOT_FOUND
+
+ACCOUNT_MAPPING_MISSING
+
+TRANSACTION_ALREADY_POSTED
+
+TRANSACTION_NOT_FOUND
+
+DUPLICATE_TRANSACTION
+
+APPROVAL_REQUIRED
+
+PERMISSION_DENIED
+
+The frontend can then display meaningful messages.
+
+23. Frontend requirements
+
+Keep the existing Revenue Management UI unless changes are required.
+
+Add only the minimum UI necessary to expose the new state.
+
+For example:
+
+Status
+------
+DRAFT
+APPROVED
+POSTED
+REVERSED
+
+and:
+
+Accounting:
+Journal JRN-001
+
+GST:
+GST-001
+
+Period:
+August 2026
 
 
-Critical correction: don't let AI Studio preserve the current naming blindly
-Your audit report contains several names that should be corrected before implementation.
-Current repository/report concept
-Target
-MIRA 105 GST return
-MIRA 105 = GST registration; MIRA 205/206 = GST returns
-MIRA 302 WHT
-MIRA 602 = Non-Resident WHT Return
-Tourism GST 16% universally
-16% until 2025-06-30; 17% from 2025-07-01
-Individual 5% / 10%
-5.5% / 8% / 12% / 15% current brackets
-Schedule 2 = capital allowance
-Verify against actual MIRA form; current catalogue says Schedule 2 = Statement of Financial Position
-Fixed MIRA form version
-Version must be resolved by tax period
-WHT 10% for every foreign vendor
-Determine actual Section 55 category; contractor is currently 5%
+For a posted record, show:
 
-These aren't cosmetic changes. They should be treated as regulatory defects in the existing implementation. MIRA's official materials confirm the current forms and rates above. (Mira)
+Edit
 
-One more thing I strongly recommend: add a Regulatory Change Protocol
+as disabled or replace it with:
+
+Create Correction
+
+Do not allow the frontend to mutate posted accounting data directly.
+
+24. Transaction Trace
+
+This phase should introduce a very small but extremely valuable diagnostic capability.
+
+For each revenue transaction provide:
+
+Revenue
+   ↓
+Classification
+   ↓
+GST Transaction
+   ↓
+Journal
+   ↓
+Ledger Posting
+   ↓
+P&L
+
+Example:
+
+REV-001
+MVR 108,000
+        │
+        ├── Net sales: MVR 100,000
+        ├── GST:       MVR   8,000
+        │
+        ▼
+GST-001
+        │
+        ▼
+JRN-001
+        ├── DR Bank       108,000
+        ├── CR Sales      100,000
+        └── CR GST          8,000
+        │
+        ▼
+GL
+        │
+        ▼
+P&L
+
+This will make the MIRA 205/206 and income-tax problems dramatically easier to diagnose.
+
+25. MIRA 205 / 206 integration
+
+Do not rewrite the existing MIRA 205/206 generators if they already exist.
+
+Instead, make sure revenue transactions feed the canonical GST engine that those generators consume.
+
+The roadmap specifically defines MIRA 205 as the General Sector GST Return and MIRA 206 as the Tourism Sector GST Return.
+
+The target is:
+
+Revenue
+   ↓
+GSTTransaction
+   ↓
+GSTPeriod
+   ↓
+GSTCalculation
+   ↓
+MIRA205 / MIRA206
+
+Do not create a separate:
+
+Revenue → MIRA205
+
+shortcut.
+
+That would recreate the architecture problem this phase is intended to fix.
+
+26. Acceptance test: simple general-sector sale
+
 Create:
-REGULATORY_CHANGE_PROTOCOL.md
 
-with this process:
-MIRA publishes change
-        ↓
-Regulatory analyst reviews source
-        ↓
-Create RegulatoryChange record
-        ↓
-Determine effective date
-        ↓
-Determine affected tax years
-        ↓
-Create new RegulatoryRule version
-        ↓
-Create regression tests
-        ↓
-Run historical tests
-        ↓
-Run future-period tests
-        ↓
-Accountant/tax reviewer approval
-        ↓
-Activate rule
+GOLDEN-REV-001
 
-Never modify a rate by simply changing:
-const GST_RATE = 0.17;
+Input:
 
-Again, MIRA's GST history demonstrates exactly why this matters: the tourism rate changed from 16% to 17% on 1 July 2025, while general GST remained 8%. (Mira)
+Sector: General
+Date: valid general GST period
 
-Your first 5 AI Studio sessions
-I would not start with Phase 20 immediately.
-Run these in order:
-Session 1
-Phase 19 — Regulatory Truth Layer
-Then inspect the diff.
-Session 2
-Phase 20 — Prisma database
-Then inspect migrations.
-Session 3
-Phase 21 — Accounting Core
-Then run accounting regression tests.
-Session 4
-Phase 22 — Invoice/OCR evidence
-Then verify the existing purchase-bill UI still works.
-Session 5
-Phase 23 — Classification
-Only after these five are stable should you begin modifying GST/tax calculations.
+Gross: MVR 108,000
+GST-inclusive: Yes
+GST: 8%
 
-And one very important change to your definition of "done"
-Your existing statement says:
-"Passing tests/integration/e2eTaxEngine.test.ts means the tax engine is fully built, tested, and ready for production."
-Delete that statement.
-Replace it with:
-"Passing the master E2E test confirms that the implemented workflow is internally consistent. Production readiness additionally requires regulatory validation, effective-dated rules, accounting integrity, reconciliation, security testing, golden regulatory cases, disaster recovery, and independent accountant/tax-practitioner acceptance."
-That distinction is essential.
-The current MIRA materials themselves show why a static E2E test isn't enough: MIRA has already revised MIRA 205 to v25.1, MIRA 604 is v25.1 for tax years from 2024, and MIRA 602 has version changes depending on the period. (Mira)
+Expected:
 
-Recommended implementation order
-If you want the lowest-risk path in Google AI Studio, use this sequence:
-                   FOUNDATION
-                        │
-                        ▼
-                 PHASE 19
-             Regulatory Truth
-                        │
-                        ▼
-                 PHASE 20
-              PostgreSQL/Prisma
-                        │
-                        ▼
-                 PHASE 21
-              Accounting Core
-                        │
-                        ▼
-                 PHASE 22
-             Document Evidence
-                        │
-                        ▼
-                 PHASE 23
-              Classification
-                        │
-          ┌─────────────┼──────────────┐
-          ▼             ▼              ▼
-       PHASE 24      PHASE 25       PHASE 26
-         GST           NWT        Income Tax
-          │             │              │
-          └─────────────┼──────────────┘
-                        ▼
-                 PHASE 27
-                   MIRA 604
-                        │
-                        ▼
-                 PHASE 28
-                 Schedules
-                        │
-                        ▼
-          ┌─────────────┼─────────────┐
-          ▼             ▼             ▼
-       PHASE 29      PHASE 30      PHASE 31
-       Assets       Adjustments      Losses
-          │             │             │
-          └─────────────┼─────────────┘
-                        ▼
-                 PHASE 32
-                       FX
-                        │
-                        ▼
-                 PHASE 33
-                Reconciliation
-                        │
-                        ▼
-                 PHASE 34
-               Filing Package
-                        │
-                        ▼
-          ┌─────────────┼──────────────┐
-          ▼             ▼              ▼
-       PHASE 35      PHASE 36       PHASE 37
-        Audit         Periods       Approval
-          │             │              │
-          └─────────────┼──────────────┘
-                        ▼
-                 PHASE 38
-                    Security
-                        │
-                        ▼
-                 PHASE 39
-                 AI Governance
-                        │
-                        ▼
-              PHASE 40–42
-             Testing System
-                        │
-                        ▼
-              PHASE 43–45
-              Compliance UX
-                        │
-                        ▼
-              PHASE 46–49
-             Production Ops
-                        │
-                        ▼
-              PHASE 50–51
-             Human Validation
-                        │
-                        ▼
-                   🟢 GO LIVE
+Net = 100,000
+GST = 8,000
+Gross = 108,000
 
-The single most important architectural principle
-Make this the motto at the top of ARCHITECTURE.md:
-AI extracts. Rules determine. Accounting records. Humans approve. MIRA forms report. Audit proves.
-That architecture is much safer than trying to make Gemini itself behave like a tax engine.
-And because you're deliberately not implementing MIRAconnect, your production boundary should be:
-                   YOUR APPLICATION
-                          │
-             ┌────────────┴────────────┐
-             │                         │
-       Tax Calculation           Filing Package
-             │                         │
-             └────────────┬────────────┘
-                          ▼
-                  Accountant Review
-                          │
-                          ▼
-                  External MIRA Filing
+Journal:
 
-rather than pretending your application has submitted anything to MIRA.
-MIRA itself currently states that MIRA 604, MIRA 205 and MIRA 602 are submitted through MIRAconnect, subject to the applicable alternative filing provisions, so your application should clearly distinguish "filing package generated" from "return filed." (Mira)
-I would start with Phase 19 exactly as written above, and after AI Studio completes it, don't let it proceed to Phase 20 until you have reviewed the regulatory-rule diff and tests.
+DR Cash/Bank             108,000
+CR Sales Revenue         100,000
+CR GST Output Tax          8,000
 
+Assertions:
+
+Debit = Credit
+
+Revenue GL = 100,000
+GST output = 8,000
+
+GSTTransaction exists
+
+P&L revenue = 100,000
+
+GST return receives 8,000
+
+Transaction trace is complete
+27. Acceptance test: GST-exclusive sale
+
+Create:
+
+GOLDEN-REV-002
+
+Example:
+
+Net sale: MVR 100,000
+GST: 8%
+
+Expected:
+
+Net = 100,000
+GST = 8,000
+Gross = 108,000
+
+Verify accounting and GST are identical to the corresponding inclusive calculation.
+
+28. Acceptance test: exempt sale
+
+Create:
+
+GOLDEN-REV-003
+
+Expected:
+
+GST = 0
+
+Journal:
+
+DR Cash/Bank             gross
+
+CR Sales Revenue         gross
+
+No output GST should be created.
+
+This corresponds to the GST engine's requirement that exempt transactions create no output GST.
+
+29. Acceptance test: tourism rate change
+
+Create two transactions:
+
+GOLDEN-REV-004
+Date: 2025-06-30
+Sector: Tourism
+
+GOLDEN-REV-005
+Date: 2025-07-01
+Sector: Tourism
+
+Verify that the historical transaction resolves to the historical rate and the later transaction resolves to the new rate.
+
+The roadmap explicitly requires these effective-date tests.
+
+30. Acceptance test: edit before posting
+Create revenue
+→ DRAFT
+
+Change amount
+→ save
+
+Verify:
+only one revenue transaction exists
+no posted journal exists
+no posted GST transaction exists
+31. Acceptance test: edit after posting
+Create
+→ Approve
+→ Post
+
+Attempt PUT
+
+Expected:
+
+REJECTED
+
+TRANSACTION_ALREADY_POSTED
+
+Then:
+
+Create correction
+→ reversal
+→ replacement transaction
+
+Verify:
+
+original journal unchanged
+reversal balances
+replacement balances
+audit trail complete
+32. Acceptance test: duplicate POST
+POST revenue
+POST same request again
+
+Expected:
+
+one revenue transaction
+one journal
+one GST transaction
+one accounting posting
+33. Acceptance test: locked period
+
+Create a revenue transaction dated inside a locked period.
+
+Expected:
+
+posting rejected
+no journal created
+no GST transaction created
+no partial accounting mutation
+34. Acceptance test: rollback
+
+Force an error during GST transaction creation after the journal has been constructed.
+
+Expected:
+
+RevenueTransaction = rolled back
+Journal = rolled back
+JournalLines = rolled back
+LedgerPosting = rolled back
+GSTTransaction = rolled back
+
+No orphan records.
+
+35. Acceptance test: P&L
+
+Create:
+
+10 sales × MVR 10,800 gross
+
+Expected:
+
+Gross sales = MVR 108,000
+Net revenue = MVR 100,000
+GST = MVR 8,000
+
+Verify the P&L gets:
+
+Revenue = MVR 100,000
+
+—not MVR 108,000.
+
+36. Acceptance test: reconciliation
+
+After posting:
+
+Revenue ↔ GL
+Revenue ↔ GST
+Revenue ↔ P&L
+
+must all return:
+
+PASS
+
+Then deliberately corrupt or omit one posting in a test fixture.
+
+Expected:
+
+FAIL
+
+with the affected transaction identified.
+
+37. Database requirements
+
+If PostgreSQL/Prisma is already present, use the existing schema architecture.
+
+Do not introduce a parallel:
+
+revenue.json
+
+source of truth for posted financial transactions.
+
+The roadmap's target architecture places accounting, GST, tax and compliance entities in the database model.
+
+If migration from existing JSON revenue data is required:
+
+JSON revenue
+     ↓
+migration
+     ↓
+RevenueTransaction
+     ↓
+validation
+     ↓
+accounting integration
+
+Do not silently invent journals for historical data if insufficient information exists.
+
+Instead mark such records:
+
+MIGRATION_REVIEW_REQUIRED
+38. Existing-data compatibility
+
+This phase must not break existing purchase-bill functionality.
+
+Run:
+
+npm test
+npm run build
+
+or the project's actual equivalents.
+
+Specifically verify:
+
+Purchase entry
+OCR
+Bill review
+GST Excel export
+GST calculations
+Existing accounting tests
+Existing tax tests
+
+before declaring Phase 52 complete.
+
+39. Files AI Studio should probably create/adapt
+
+Do not create all of these automatically.
+
+First inspect the repository and reuse existing services.
+
+Potential target structure:
+
+src/services/revenue/
+    revenueService.ts
+    revenueValidationService.ts
+    revenuePostingService.ts
+    revenueClassificationService.ts
+
+src/services/accounting/
+    journalPostingService.ts
+    ledgerService.ts
+
+src/services/gst/
+    gstService.ts
+
+src/services/reconciliation/
+    reconciliationService.ts
+
+tests/revenue/
+    revenueAccounting.test.ts
+    revenueGst.test.ts
+    revenuePosting.test.ts
+    revenueReversal.test.ts
+    revenueReconciliation.test.ts
+
+If equivalent services already exist, extend them instead.
+
+40. Phase 52 definition of DONE
+
+Phase 52 is NOT DONE merely because:
+
+Revenue screen saves a record.
+
+It is DONE only when this works:
+
+CREATE SALE
+      ↓
+VALIDATE
+      ↓
+CLASSIFY
+      ↓
+CALCULATE GST
+      ↓
+APPROVE
+      ↓
+POST
+      ↓
+JOURNAL
+      ↓
+LEDGER
+      ↓
+P&L
+      ↓
+GST TRANSACTION
+      ↓
+MIRA 205/206 INPUT
+      ↓
+RECONCILIATION
+      ↓
+AUDIT TRAIL
+
+And this must also work:
+
+POSTED SALE
+      ↓
+CORRECTION
+      ↓
+REVERSAL
+      ↓
+REPLACEMENT
+
+without modifying the original posted journal.
+
+41. Phase 52 acceptance checklist
+
+AI Studio must produce a report with:
+
+Test	Required
+Revenue creates transaction	PASS
+Revenue can be edited while draft	PASS
+Posted revenue cannot be edited	PASS
+Posted revenue cannot be deleted	PASS
+Reversal works	PASS
+Journal balances	PASS
+Decimal arithmetic	PASS
+Duplicate posting prevented	PASS
+Payment account resolved	PASS
+GST calculated backend-side	PASS
+GST transaction created	PASS
+General GST works	PASS
+Tourism historical rate works	PASS
+Tourism current rate works	PASS
+Exempt revenue works	PASS
+P&L receives revenue	PASS
+GST reconciliation works	PASS
+GL reconciliation works	PASS
+Period lock works	PASS
+Audit event generated	PASS
+Transaction trace works	PASS
+Existing purchase tests pass	PASS
+Existing GST tests pass	PASS
+Build passes	PASS
+
+Any critical failure means:
+
+PHASE 52 = FAIL
+
+—not “mostly complete.”
+
+42. The actual Google AI Studio prompt
+
+I recommend giving AI Studio the phase in smaller execution prompts, rather than pasting the whole specification and asking it to implement everything in one shot.
+
+Prompt 1 — Architecture inspection
+
+PHASE 52 — REVENUE / SALES + ACCOUNTING INTEGRATION
+STEP 1 — ARCHITECTURE INSPECTION
+
+You are modifying an existing production-oriented Maldives Tax & Accounting application.
+
+DO NOT rewrite the application.
+DO NOT modify unrelated functionality.
+DO NOT change the UI yet.
+DO NOT implement anything yet.
+
+The objective of Phase 52 is to make Revenue/Sales a real accounting transaction source.
+
+Inspect the complete repository and specifically inspect:
+
+src/components/RevenueManagementModal.tsx
+src/services/accounting/
+src/services/gst/
+src/services/tax/
+src/services/reports/
+src/services/audit/
+src/services/db/
+src/types/
+src/config/
+server.ts
+prisma/
+data/
+tests/
+
+Search for:
+
+revenue
+sales
+gross_amount
+gst_collected
+net_revenue
+payment_method
+journal
+journalLine
+ledger
+GSTTransaction
+pnl
+accounting
+/api/revenue
+
+Determine:
+
+How Revenue is currently persisted.
+Which API endpoints currently implement Revenue.
+Whether GET/POST/PUT/DELETE Revenue operations are complete.
+Which existing accounting service should receive Revenue postings.
+Which existing journal-posting service should be reused.
+Which existing GST service should receive Revenue transactions.
+Which existing P&L service should receive Revenue through the GL.
+Which database models already exist.
+Whether JSON persistence is still being used for Revenue.
+Which existing tests cover Revenue.
+Which existing tests cover accounting.
+Which existing tests cover GST.
+Any duplicate Revenue/accounting implementations.
+Any frontend financial calculations that should move to the backend.
+
+Do not change files.
+
+Return an architecture report containing:
+
+CURRENT REVENUE FLOW
+CURRENT ACCOUNTING FLOW
+CURRENT GST FLOW
+CURRENT PERSISTENCE FLOW
+EXISTING SERVICES TO REUSE
+EXISTING SERVICES THAT ARE INCOMPLETE
+API CONTRACT GAPS
+DATA MODEL GAPS
+TEST GAPS
+RECOMMENDED MINIMUM CHANGES
+
+Do not claim that a route, service, or model is missing unless you verified it in the repository.
+
+Prompt 2 — Revenue posting
+
+PHASE 52 — REVENUE / SALES + ACCOUNTING INTEGRATION
+STEP 2 — REVENUE ACCOUNTING POSTING
+
+Based on the architecture inspection, implement ONLY the Revenue → Accounting integration.
+
+Reuse existing services and models wherever possible.
+
+Do not rewrite the application.
+
+Requirements:
+
+Revenue must have a deterministic lifecycle:
+DRAFT
+VALIDATED
+REVIEW_REQUIRED
+APPROVED
+POSTED
+REVERSED
+Draft revenue may be edited.
+Posted revenue is immutable.
+Posted revenue cannot be deleted.
+Corrections require reversal/adjustment transactions.
+Revenue posting must create a balanced Journal.
+
+For a GST-inclusive sale:
+
+Gross = 108000
+GST = 8000
+Net = 100000
+
+The conceptual journal is:
+
+DR Cash/Bank/Card Clearing 108000
+CR Sales Revenue 100000
+CR GST Output Tax 8000
+
+Use the existing chart of accounts.
+Do not hard-code account IDs.
+
+Payment method must resolve to the configured accounting account.
+Missing account mapping must produce REVIEW_REQUIRED rather than inventing an account.
+All monetary calculations must use Decimal-safe arithmetic.
+Posting must be atomic.
+Duplicate posting must be prevented.
+Every journal must identify its source Revenue transaction.
+Posting must respect AccountingPeriod status.
+Locked periods must reject normal posting.
+Create an immutable audit event for posting.
+
+Do not change MIRA formulas.
+
+Do not implement the complete GST return yet.
+
+After implementation:
+
+run Revenue tests
+run accounting tests
+run TypeScript checks
+run build
+report modified files
+report new files
+report test results
+report remaining risks
+
+Do not hide failures.
+
+Prompt 3 — Revenue → GST
+
+PHASE 52 — REVENUE / SALES + ACCOUNTING INTEGRATION
+STEP 3 — REVENUE → GST
+
+Now connect the posted Revenue transaction to the existing canonical GST engine.
+
+Do NOT create a second GST calculation system.
+
+Do NOT calculate authoritative GST in React.
+
+The backend/domain layer must calculate:
+
+gross amount
+net amount
+GST amount
+GST classification
+GST rate
+regulatory rule
+regulatory version
+
+Support the existing GST classifications:
+
+TAXABLE
+ZERO_RATED
+EXEMPT
+OUT_OF_SCOPE
+
+Resolve GST using the existing regulatory/effective-date architecture.
+
+Do not hard-code statutory rates.
+
+Revenue must create a GSTTransaction when appropriate.
+
+The GST transaction must retain a trace to:
+
+RevenueTransaction
+→ GSTTransaction
+→ Journal
+→ LedgerPosting
+
+Verify:
+
+General-sector GST.
+Tourism historical rate.
+Tourism current rate.
+Exempt revenue.
+Zero-rated revenue.
+Out-of-scope revenue.
+GST-inclusive revenue.
+GST-exclusive revenue.
+Decimal-safe calculations.
+GST transaction rollback if journal posting fails.
+Historical transaction rates remain reproducible.
+
+Reuse existing MIRA 205/206 generators.
+
+Do NOT rewrite MIRA 205/206.
+
+The objective is to feed them authoritative GST transactions.
+
+Run all relevant tests and build checks afterward.
+
+Prompt 4 — P&L/reconciliation
+
+PHASE 52 — REVENUE / SALES + ACCOUNTING INTEGRATION
+STEP 4 — REPORTING + RECONCILIATION
+
+Connect Revenue to reporting through the authoritative accounting ledger.
+
+Do NOT create a separate P&L calculation based directly on Revenue records.
+
+Required flow:
+
+Revenue
+→ Journal
+→ Ledger
+→ P&L
+
+Verify that net sales revenue appears in the correct P&L account.
+
+Implement or extend reconciliation checks for:
+
+Revenue ↔ GL
+Revenue ↔ P&L
+Revenue GST ↔ GSTTransaction
+GSTTransaction ↔ GST output accounts
+
+Every reconciliation must return:
+
+PASS
+WARNING
+FAIL
+
+Every difference must identify the affected Revenue transaction.
+
+Add a Transaction Trace capability that can show:
+
+Revenue
+→ Classification
+→ GSTTransaction
+→ Journal
+→ JournalLines
+→ LedgerPosting
+→ P&L
+
+Do not redesign the application navigation.
+
+Add only the minimum UI/API needed to expose the trace.
+
+Run all tests and build checks.
+
+Prompt 5 — correction workflow
+
+PHASE 52 — REVENUE / SALES + ACCOUNTING INTEGRATION
+STEP 5 — CORRECTIONS / REVERSALS
+
+Implement the Revenue correction workflow.
+
+Rules:
+
+DRAFT can be edited.
+POSTED cannot be edited.
+POSTED cannot be deleted.
+Closed periods cannot be bypassed.
+Corrections use reversal/adjustment transactions.
+
+Test:
+
+Post a revenue transaction.
+Attempt to edit it.
+Verify edit is rejected.
+Attempt to delete it.
+Verify delete is rejected.
+Create a reversal.
+Verify reversal balances.
+Create replacement revenue.
+Verify replacement balances.
+Verify original journal remains unchanged.
+Verify audit events exist for posting and reversal.
+Verify locked periods prevent unauthorized corrections.
+
+Do not physically delete financial records.
+
+Run regression tests afterward.
+
+One important implementation decision
+
+I would not ask Google AI Studio to “make MIRA 205/206 work” as the next task.
+
+That is too high-level and will likely cause it to patch the form generator.
+
+Instead, make the success criterion:
+
+“Post one sale completely through Revenue → Journal → GL → GSTTransaction → MIRA 205/206 source data → P&L → reconciliation.”
+
+Once that vertical slice works, the MIRA 205/206 problem becomes much easier because the return is no longer trying to manufacture accounting data itself.
+
+The roadmap already establishes this philosophy: the accounting core requires balanced immutable journals and source-document traceability, while the GST layer requires return values to be traceable to GST transactions and reconciled to the GL.
+
+What I would consider the Phase 52 milestone
+                    ┌──────────────┐
+                    │ Revenue Sale │
+                    └──────┬───────┘
+                           │
+                     classification
+                           │
+                    ┌──────▼───────┐
+                    │ GST Engine   │
+                    └──────┬───────┘
+                           │
+              ┌────────────▼────────────┐
+              │     Accounting Journal  │
+              └────────────┬────────────┘
+                           │
+                       ┌───▼───┐
+                       │  GL   │
+                       └───┬───┘
+                           │
+                ┌──────────┴──────────┐
+                ▼                     ▼
+              P&L                 GST Return
+                │                 MIRA 205/206
+                │                     │
+                └──────────┬──────────┘
+                           ▼
+                    Reconciliation
+                           │
+                           ▼
+                       Audit Trail
+
+If this diagram works for one real transaction in the app, you have fixed the fundamental Revenue/Sales integration problem. From there, Income Tax can consume the resulting authoritative P&L rather than trying to calculate from a separate revenue subsystem.

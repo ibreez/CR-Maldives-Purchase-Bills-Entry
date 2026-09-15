@@ -14,9 +14,11 @@ import {
   GstTransactionInput,
   GstSector
 } from '../../types/gst';
+import { RevenueTransaction } from '../../types/revenue';
 import { canonicalGstEngine, GstEngineService } from './gstEngineService';
+import { RevenueGstService } from '../revenue/revenueGstService';
 
-export { canonicalGstEngine, GstEngineService };
+export { canonicalGstEngine, GstEngineService, RevenueGstService };
 
 /**
  * Classifies input GST eligibility for a purchase transaction.
@@ -111,6 +113,16 @@ export function generateMira206Return(
     period,
     previousExcessCredit
   });
+}
+
+/**
+ * Converts Revenue transactions to canonical GstTransactionInput for MIRA 205 / 206 returns.
+ */
+export function convertRevenueToGstTransactionInput(
+  revenue: RevenueTransaction | RevenueTransaction[]
+): GstTransactionInput[] {
+  const items = Array.isArray(revenue) ? revenue : [revenue];
+  return items.map((r) => RevenueGstService.toGstTransactionInput(r));
 }
 
 /**

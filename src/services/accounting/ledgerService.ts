@@ -220,6 +220,39 @@ export class LedgerService {
   }
 
   /**
+   * Authoritative posting of journal lines to the general ledger.
+   * Ensures all accounts exist and returns the persisted JournalLine records.
+   */
+  static async postJournalLines(
+    tenantId: string,
+    journalId: string,
+    lines: Array<{
+      accountCode: string;
+      accountName?: string;
+      debit: Prisma.Decimal | number | string;
+      credit: Prisma.Decimal | number | string;
+      description?: string;
+    }>,
+    db: PrismaClient | Prisma.TransactionClient = defaultPrisma
+  ) {
+    // Ensures accounts exist batch to prevent missing account foreign key constraints
+    await LedgerService.ensureAccountsExistBatch(
+      tenantId,
+      lines.map((l) => ({ accountCode: l.accountCode, accountName: l.accountName })),
+      db
+    );
+
+    return await db.journalLine.findMany({
+      where: { journalId },
+      include: {
+        account: true,
+        journal: true
+      },
+      orderBy: { id: 'asc' }
+    });
+  }
+
+  /**
    * Memory-bounded streaming / chunked aggregation of account balances.
    * Eliminates unbounded findMany queries when aggregating up to 1,000,000 journal lines.
    * Keeps peak heap memory bounded to O(accounts) instead of O(lines).

@@ -79,6 +79,7 @@ model Tenant {
   periodLocks         PeriodLock[]
   transactions        Transaction[]
   journalEntries      JournalEntry[]
+  revenueTransactions RevenueTransaction[]
   legacyFixedAssets   LegacyFixedAsset[]
   legacyTaxReturns    TaxReturn[]
   ocrFieldEvidences   OCRFieldEvidence[]
@@ -392,6 +393,7 @@ model AccountingPeriod {
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   journals Journal[]
+  revenueTransactions RevenueTransaction[]
 
   @@index([tenantId])
   @@index([startDate, endDate])
@@ -413,6 +415,7 @@ model Journal {
   tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   accountingPeriod AccountingPeriod? @relation(fields: [accountingPeriodId], references: [id], onDelete: SetNull)
   lines            JournalLine[]
+  revenueTransaction RevenueTransaction?
 
   @@index([tenantId])
   @@index([entryDate])
@@ -440,6 +443,85 @@ model JournalLine {
 }
 
 // -----------------------------------------------------------------------------
+// REVENUE SUBLEDGER
+// -----------------------------------------------------------------------------
+
+model RevenueTransaction {
+  id                    String            @id
+  tenantId              String
+  outletId              String
+  outletName            String?
+  transactionDate       DateTime
+  accountingPeriodId    String?
+  category              String
+  description           String
+  amountBasis           String            // 'GST_INCLUSIVE', 'GST_EXCLUSIVE'
+  sector                String            // 'GENERAL', 'TOURISM'
+
+  // Financial values
+  grossAmount           Decimal           @db.Decimal(18, 4)
+  netAmount             Decimal           @db.Decimal(18, 4)
+  gstAmount             Decimal           @db.Decimal(18, 4)
+
+  // GST Resolution & Traceability
+  gstClassification     String            // 'TAXABLE', 'ZERO_RATED', 'EXEMPT', 'OUT_OF_SCOPE'
+  gstRate               Decimal           @db.Decimal(5, 4)
+  gstRatePercentage     Decimal           @db.Decimal(5, 2)
+  gstRuleId             String?
+  gstRegulatoryVersion  String?
+
+  // Payment & Source tracking
+  paymentMethod         String            // 'CASH', 'CARD', 'BANK', 'ONLINE', 'CREDIT', 'OTHER'
+  customerReference     String?
+  currency              String            @default("MVR")
+  fxRate                Decimal           @default(1.0000) @db.Decimal(18, 4)
+  mvrAmount             Decimal           @db.Decimal(18, 4)
+
+  // Lifecycle & Linking
+  status                String            @default("DRAFT") // 'DRAFT', 'VALIDATED', 'REVIEW_REQUIRED', 'APPROVED', 'POSTED', 'REVERSED'
+  sourceType            String            @default("MANUAL_ENTRY")
+  sourceId              String?
+  idempotencyKey        String?           @unique
+  journalId             String?           @unique
+  gstTransactionId      String?           @unique
+  auditEventId          String?
+
+  // Reversal / Correction tracking
+  reversalOfId          String?
+  reversalJournalId     String?
+  reversedById          String?
+  correctionNote        String?
+
+  // Review & Approval
+  reviewNotes           String?
+  approvedBy            String?
+  approvedAt            DateTime?
+
+  createdBy             String            @default("SYSTEM")
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  // Relationships
+  tenant                Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  accountingPeriod      AccountingPeriod? @relation(fields: [accountingPeriodId], references: [id], onDelete: SetNull)
+  journal               Journal?          @relation(fields: [journalId], references: [id], onDelete: SetNull)
+  gstTransaction        GSTTransaction?   @relation(fields: [gstTransactionId], references: [id], onDelete: SetNull)
+
+  // Self-referential relationships for correction / reversal
+  reversalOf            RevenueTransaction?  @relation("RevenueCorrections", fields: [reversalOfId], references: [id], onDelete: SetNull)
+  reversedBy            RevenueTransaction[] @relation("RevenueCorrections")
+
+  @@index([tenantId])
+  @@index([outletId])
+  @@index([transactionDate])
+  @@index([status])
+  @@index([sourceId])
+  @@index([journalId])
+  @@index([gstTransactionId])
+  @@index([tenantId, status, transactionDate])
+}
+
+// -----------------------------------------------------------------------------
 // GST & WITHHOLDING TAX (NWT)
 // -----------------------------------------------------------------------------
 
@@ -459,6 +541,7 @@ model GSTTransaction {
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoice   Invoice?   @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   gstPeriod GSTPeriod? @relation(fields: [gstPeriodId], references: [id], onDelete: SetNull)
+  revenueTransaction RevenueTransaction?
 
   @@index([tenantId])
   @@index([transactionDate])

@@ -263,6 +263,18 @@ export interface RevenueRecord {
   year?: number;
   created_by?: string;
   created_at?: string;
+  status?: 'DRAFT' | 'VALIDATED' | 'POSTED' | 'REVERSED';
+  journalId?: string;
+  gstTransactionId?: string;
+  gstRate?: number;
+  gstRuleId?: string;
+  reversalJournalId?: string;
+  reversalOfId?: string;
+  reversedById?: string;
+  correctionNote?: string;
+  sector?: 'GENERAL' | 'TOURISM';
+  amountBasis?: 'GST_INCLUSIVE' | 'GST_EXCLUSIVE';
+  gstClassification?: 'TAXABLE' | 'ZERO_RATED' | 'EXEMPT';
 }
 
 export type AssetClass =

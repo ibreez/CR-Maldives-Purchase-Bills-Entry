@@ -7,4 +7,5 @@ export * from './reconciliationService';
 export * from './taxAdjustmentService';
 export * from './taxAdjustmentLedgerEngine';
 export * from './taxLossLotEngine';
+export * from './mira604IntegrationService';
 export * from '../explainability';
